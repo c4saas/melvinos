@@ -1,0 +1,45 @@
+# Dependencies — reinstalled inside container
+node_modules/
+.pnp
+.pnp.js
+
+# Build output — rebuilt inside container
+dist/
+.vite/
+
+# Environment files — mounted or passed at runtime, never baked in
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# Dev tooling
+.vscode/
+.idea/
+*.log
+
+# Test artifacts
+tests/playwright/
+playwright-report/
+test-results/
+coverage/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Replit
+.replit
+replit.nix
+
+# Docs (not needed at runtime)
+*.md
+!README.md
+attached_assets/
+
+# Apps subdirectory node_modules excluded; source needed for server imports
+apps/**/node_modules/
+apps/**/.next/

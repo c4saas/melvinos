@@ -1,0 +1,1136 @@
+import { useState } from 'react';
+import { useLocation } from 'wouter';
+import {
+  ArrowLeft,
+  BookOpen,
+  MessageSquare,
+  FolderOpen,
+  Wrench,
+  Plug,
+  Zap,
+  Bot,
+  Settings,
+  Keyboard,
+  Heart,
+  Globe,
+  Search,
+  Brain,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import { useBranding } from '@/hooks/useBranding';
+
+const SECTIONS = [
+  { id: 'getting-started', label: 'Getting Started', icon: BookOpen },
+  { id: 'chat', label: 'Chat & Conversations', icon: MessageSquare },
+  { id: 'memory', label: 'Memory & Learning', icon: Brain },
+  { id: 'workspace', label: 'Workspace', icon: FolderOpen },
+  { id: 'tools', label: 'Tools & Capabilities', icon: Wrench },
+  { id: 'subagents', label: 'Subagents', icon: Bot },
+  { id: 'settings', label: 'Settings Reference', icon: Settings },
+  { id: 'integrations', label: 'Integrations', icon: Plug },
+  { id: 'heartbeat', label: 'Heartbeat', icon: Heart },
+  { id: 'mcp', label: 'MCP Servers', icon: Globe },
+  { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
+  { id: 'api', label: 'API Reference', icon: Zap },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]['id'];
+
+function SectionGettingStarted() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Getting Started</h2>
+      <p className="text-muted-foreground">
+        {agentName} is your autonomous AI agent — a personal assistant that can manage your calendar, email,
+        documents, research, and more. This guide covers everything you need to get up and running.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">First-Time Setup</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p>When you first launch {agentName}, the setup wizard will walk you through:</p>
+          <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+            <li><strong>Create your account</strong> — Set up your admin username and password.</li>
+            <li><strong>Configure an AI provider</strong> — Go to <em>Settings &gt; AI Providers</em> and add your API key (Anthropic, OpenAI, etc.).</li>
+            <li><strong>Connect integrations</strong> — Link Google Workspace, Notion, Telegram, and other services in <em>Settings &gt; Integrations</em>.</li>
+            <li><strong>Start chatting</strong> — Navigate to the Chat view and send your first message. {agentName} learns from every conversation.</li>
+          </ol>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Navigating the UI</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>The interface has three main areas:</p>
+          <ul className="list-disc list-inside space-y-2">
+            <li><strong>Navigation Rail</strong> (left edge, desktop/tablet) — Quick access to Chat, Workspace, and Settings.</li>
+            <li><strong>Sidebar</strong> — Lists your conversations, templates, and projects. Accessible via the menu icon on mobile.</li>
+            <li><strong>Main Content</strong> — The active chat, workspace browser, or settings page.</li>
+          </ul>
+          <p>On mobile, use the back arrow (top-left) to navigate between views, and the three-dot menu to access chats, workspace, and settings.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionChat() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Chat & Conversations</h2>
+      <p className="text-muted-foreground">
+        Chat is the primary way to interact with {agentName}. Each conversation is stored and searchable.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Starting a Conversation</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <ul className="list-disc list-inside space-y-2">
+            <li>Click <strong>New</strong> in the sidebar header to start a fresh conversation.</li>
+            <li>Type your message in the input bar at the bottom and press Enter or the send button.</li>
+            <li>{agentName} will use the appropriate tools automatically — you don't need to specify which tool to use.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Templates</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Templates are pre-built conversation starters for common tasks. They appear in the sidebar under the Templates section.</p>
+          <p>Admins can create and manage templates in <em>Settings &gt; Templates &amp; Projects</em>.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Projects</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Projects let you organize conversations into groups. Create a project from the sidebar, then assign chats to it.</p>
+          <ul className="list-disc list-inside space-y-2">
+            <li>Right-click (or use the menu) on any chat to <strong>Move to Project</strong>.</li>
+            <li>Project chats are grouped under their project heading in the sidebar.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">File Uploads</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Attach files to your messages using the attachment button in the chat input. Supported formats include images, PDFs, and text documents.</p>
+          <p>{agentName} can analyze uploaded files and use their content in the conversation.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Slash Commands</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Type a slash command as your entire message to trigger special behaviors:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><code className="text-xs bg-muted px-1 rounded">/usage</code> — Show live Claude Code subscription usage (session %, weekly %, weekly Sonnet %)</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Thor Mode</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Thor Mode is {agentName}'s maximum-power mode. When activated, it unlocks the highest reasoning capacity, max token output, and extended tool iterations for deep, complex work.</p>
+          <p>Toggle it using the lightning bolt icon in the <strong>chat header</strong> (top-left of the chat, next to the model selector).</p>
+          <p className="font-medium text-foreground mt-2">What Thor Mode changes:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Thinking budget</strong> — Maxed to 16,000 tokens (vs. 4,000 standard)</li>
+            <li><strong>Max output tokens</strong> — Up to 64,000 tokens (vs. 4,000 standard)</li>
+            <li><strong>Tool iterations</strong> — Up to 100 rounds (vs. 25 standard)</li>
+            <li><strong>Temperature</strong> — Set to 1.0 for maximum creativity</li>
+            <li><strong>Web search</strong> — Automatically uses deep research mode</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Model Capabilities</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <p className="mb-3">Each model has different capabilities. Models with native web search use their provider's built-in search; others fall back to Perplexity Sonar Pro.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border/60 bg-muted/40">
+                  <th className="px-2 py-2 text-left font-semibold">Model</th>
+                  <th className="px-2 py-2 text-left font-semibold">Provider</th>
+                  <th className="px-2 py-2 text-right font-semibold">Context</th>
+                  <th className="px-2 py-2 text-center font-semibold">Tools</th>
+                  <th className="px-2 py-2 text-center font-semibold">Vision</th>
+                  <th className="px-2 py-2 text-center font-semibold">Thinking</th>
+                  <th className="px-2 py-2 text-center font-semibold">Code</th>
+                  <th className="px-2 py-2 text-left font-semibold">Web Search</th>
+                  <th className="px-2 py-2 text-right font-semibold">Input $/1K</th>
+                  <th className="px-2 py-2 text-right font-semibold">Output $/1K</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Claude Opus 4.6</td>
+                  <td className="px-2 py-1.5">Anthropic</td>
+                  <td className="px-2 py-1.5 text-right">200K</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-blue-400">Native</td>
+                  <td className="px-2 py-1.5 text-right">$0.015</td>
+                  <td className="px-2 py-1.5 text-right">$0.075</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Claude Sonnet 4.6</td>
+                  <td className="px-2 py-1.5">Anthropic</td>
+                  <td className="px-2 py-1.5 text-right">200K</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-blue-400">Native</td>
+                  <td className="px-2 py-1.5 text-right">$0.003</td>
+                  <td className="px-2 py-1.5 text-right">$0.015</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">GPT-5.2</td>
+                  <td className="px-2 py-1.5">OpenAI</td>
+                  <td className="px-2 py-1.5 text-right">200K</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-blue-400">Native</td>
+                  <td className="px-2 py-1.5 text-right">$0.010</td>
+                  <td className="px-2 py-1.5 text-right">$0.030</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Gemini 3.1 Pro</td>
+                  <td className="px-2 py-1.5">Google</td>
+                  <td className="px-2 py-1.5 text-right">1M</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-blue-400">Native</td>
+                  <td className="px-2 py-1.5 text-right">$0.00125</td>
+                  <td className="px-2 py-1.5 text-right">$0.005</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Gemini 2.5 Flash</td>
+                  <td className="px-2 py-1.5">Google</td>
+                  <td className="px-2 py-1.5 text-right">1M</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-blue-400">Native</td>
+                  <td className="px-2 py-1.5 text-right">$0.00015</td>
+                  <td className="px-2 py-1.5 text-right">$0.0006</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Compound Beta</td>
+                  <td className="px-2 py-1.5">Groq</td>
+                  <td className="px-2 py-1.5 text-right">32K</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-blue-400">Native</td>
+                  <td className="px-2 py-1.5 text-right">$0.002</td>
+                  <td className="px-2 py-1.5 text-right">$0.002</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">OS-120B</td>
+                  <td className="px-2 py-1.5">Groq</td>
+                  <td className="px-2 py-1.5 text-right">64K</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-amber-400">Perplexity</td>
+                  <td className="px-2 py-1.5 text-right">$0.003</td>
+                  <td className="px-2 py-1.5 text-right">$0.003</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Qwen 3.5 397B</td>
+                  <td className="px-2 py-1.5">Ollama</td>
+                  <td className="px-2 py-1.5 text-right">32K</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-amber-400">Perplexity</td>
+                  <td className="px-2 py-1.5 text-right">Free</td>
+                  <td className="px-2 py-1.5 text-right">Free</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Sonar Pro</td>
+                  <td className="px-2 py-1.5">Perplexity</td>
+                  <td className="px-2 py-1.5 text-right">8K</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-green-500">Built-in</td>
+                  <td className="px-2 py-1.5 text-right">$0.003</td>
+                  <td className="px-2 py-1.5 text-right">$0.015</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Sonar Deep Research</td>
+                  <td className="px-2 py-1.5">Perplexity</td>
+                  <td className="px-2 py-1.5 text-right">4K</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-green-500">Built-in</td>
+                  <td className="px-2 py-1.5 text-right">$0.005</td>
+                  <td className="px-2 py-1.5 text-right">$0.005</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Llama 3.1 8B</td>
+                  <td className="px-2 py-1.5">Groq</td>
+                  <td className="px-2 py-1.5 text-right">32K</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-muted-foreground/50">None</td>
+                  <td className="px-2 py-1.5 text-right">$0.00005</td>
+                  <td className="px-2 py-1.5 text-right">$0.00008</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground/70 mt-3">
+            <strong>Context</strong> = maximum input tokens. &nbsp;
+            <strong>Tools</strong> = can use calendar, email, Drive, etc. &nbsp;
+            <strong>Thinking</strong> = extended reasoning / Thor Mode support. &nbsp;
+            <strong>Code</strong> = code execution support.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            <strong className="text-blue-400">Native</strong> = uses provider's built-in web search (no Perplexity cost). &nbsp;
+            <strong className="text-amber-400">Perplexity</strong> = web search routed through Perplexity Sonar Pro. &nbsp;
+            <strong className="text-green-500">Built-in</strong> = search is the core product.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            Deep Research and Thor Mode always use Perplexity Sonar Deep Research regardless of model.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionMemory() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Memory & Learning</h2>
+      <p className="text-muted-foreground">
+        {agentName} learns from every conversation and builds a persistent memory that makes it smarter over time.
+        This is what separates {agentName} from stateless AI assistants — it remembers your projects, preferences,
+        workflows, and context across all future sessions.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Auto-Memory Extraction</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>After each conversation turn, {agentName} automatically extracts important facts, preferences, and procedures
+          using a lightweight background process. This happens invisibly — you never need to tell {agentName} to remember something.</p>
+          <p>Memories are categorized as:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Fact</strong> — Your role, projects, key context about your situation</li>
+            <li><strong>Preference</strong> — How you like things done, communication style, tool choices</li>
+            <li><strong>Procedure</strong> — Established workflows, conventions, recurring task patterns</li>
+            <li><strong>Context</strong> — Background knowledge important for future assistance</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Contextual Memory Injection</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>At the start of every conversation turn, {agentName} automatically loads two sets of memories:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Top memories</strong> — The 10 highest-relevance memories are always present, so {agentName} always knows your most important context.</li>
+            <li><strong>Contextual memories</strong> — Up to 5 additional memories are searched based on keywords in your current message, surfacing relevant details you may have discussed weeks ago.</li>
+          </ul>
+          <p>This means {agentName} walks into every conversation already knowing what matters — without you repeating yourself.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Deduplication</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Before saving a new memory, {agentName} checks existing memories for similarity using word-overlap analysis.
+          If a new memory is more than 70% similar to an existing one, it is skipped. This prevents memory bloat
+          and keeps the memory store clean and relevant.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Manual Memory</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>You can also explicitly tell {agentName} to remember or forget things:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><em>"Remember that I prefer bullet points over paragraphs"</em> — saves a preference memory</li>
+            <li><em>"What do you remember about Project X?"</em> — searches stored memories</li>
+          </ul>
+          <p>{agentName} has dedicated <code className="text-xs bg-muted px-1 rounded">memory_save</code> and <code className="text-xs bg-muted px-1 rounded">memory_search</code> tools for this.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Memory Hygiene</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>{agentName} automatically maintains memory quality:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li>Memories are capped at 500. When exceeded, the lowest-relevance memories are pruned automatically.</li>
+            <li>Empty or failed responses do not trigger memory extraction.</li>
+            <li>Heartbeat scans (automated checks) are excluded from memory extraction.</li>
+          </ul>
+          <p>You can review and manage all memories in <em>Settings &gt; Memory</em>.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionWorkspace() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Workspace</h2>
+      <p className="text-muted-foreground">
+        The Workspace is a file browser that stores artifacts created during your conversations. {agentName} automatically saves relevant outputs here.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Folder Structure</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <p className="mb-3">Files are organized into folders by type:</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="rounded-lg border p-3">
+              <p className="font-medium text-foreground">research/</p>
+              <p className="text-xs">Deep research reports, web searches, fetched pages</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="font-medium text-foreground">email/</p>
+              <p className="text-xs">Gmail search results and read emails</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="font-medium text-foreground">calendar/</p>
+              <p className="text-xs">Calendar event listings</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="font-medium text-foreground">media/images/</p>
+              <p className="text-xs">AI-generated images</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="font-medium text-foreground">media/videos/</p>
+              <p className="text-xs">AI-generated videos</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="font-medium text-foreground">drive/</p>
+              <p className="text-xs">Google Drive search results and document reads</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="font-medium text-foreground">notion/</p>
+              <p className="text-xs">Notion search results and page reads</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="font-medium text-foreground">meetings/</p>
+              <p className="text-xs">Meeting transcript searches and listings</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">What Gets Saved</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Read-only and retrieval tools automatically save their outputs. Action tools (sending emails, creating events, writing Notion pages) do <em>not</em> save to workspace since their effects live in the target service.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionTools() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Tools & Capabilities</h2>
+      <p className="text-muted-foreground">
+        {agentName} has access to a wide range of tools. They are invoked automatically based on your request.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Google Workspace</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <p className="mb-2">Multiple Google accounts are supported (e.g. Work, Agency, Personal). All read tools fan out across all connected accounts and label results by account. Write tools accept an optional <code className="text-xs bg-muted px-1 rounded">account</code> parameter to target a specific one.</p>
+          <div className="space-y-2">
+            <p className="font-medium text-foreground">Calendar</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><code className="text-xs bg-muted px-1 rounded">calendar_events</code> — List upcoming events across all accounts</li>
+              <li><code className="text-xs bg-muted px-1 rounded">calendar_create_event</code> — Create new events (specify account if needed)</li>
+              <li><code className="text-xs bg-muted px-1 rounded">calendar_update_event</code> / <code className="text-xs bg-muted px-1 rounded">calendar_delete_event</code> — Modify or remove events</li>
+            </ul>
+            <p className="font-medium text-foreground mt-3">Gmail</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><code className="text-xs bg-muted px-1 rounded">gmail_search</code> — Search emails across all connected accounts</li>
+              <li><code className="text-xs bg-muted px-1 rounded">gmail_read</code> — Read full email content</li>
+              <li><code className="text-xs bg-muted px-1 rounded">gmail_send</code> — Compose and send emails (specify account with <code className="text-xs bg-muted px-1 rounded">account</code> param)</li>
+              <li><code className="text-xs bg-muted px-1 rounded">gmail_modify</code> — Archive, trash, label emails</li>
+            </ul>
+            <p className="font-medium text-foreground mt-3">Google Drive</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><code className="text-xs bg-muted px-1 rounded">drive_search</code> — Search files across all connected Drive accounts</li>
+              <li><code className="text-xs bg-muted px-1 rounded">drive_read</code> — Read document content</li>
+              <li><code className="text-xs bg-muted px-1 rounded">drive_write</code> — Create or update documents</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">GoHighLevel (CRM)</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <p className="mb-2">Two GHL accounts are connected via MCP, each with 36 tools covering contacts, opportunities, pipelines, calendars, conversations, workflows, invoices, and more.</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li><strong>Primary Account - HighLevel</strong> — <em>default account.</em> Used automatically unless you say otherwise.</li>
+            <li><strong>Secondary Account - HighLevel</strong> — only used when you explicitly mention the secondary account.</li>
+          </ul>
+          <p className="mt-2">You never need to specify the account for primary operations — {agentName} uses it by default.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Notion</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <ul className="list-disc list-inside space-y-1">
+            <li><code className="text-xs bg-muted px-1 rounded">notion_search</code> — Search pages and databases</li>
+            <li><code className="text-xs bg-muted px-1 rounded">notion_read_page</code> — Read page content</li>
+            <li><code className="text-xs bg-muted px-1 rounded">notion_create_page</code> / <code className="text-xs bg-muted px-1 rounded">notion_update_page</code> — Create and edit pages</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Web & Research</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <ul className="list-disc list-inside space-y-1">
+            <li><code className="text-xs bg-muted px-1 rounded">web_search</code> — Search the web for current information. Uses native provider search for GPT-5.2, Claude, Gemini, and Compound; falls back to Perplexity Sonar Pro for other models. Deep research and Thor Mode always use Sonar Deep Research.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">web_fetch</code> — Fetch and extract content from any URL</li>
+            <li><code className="text-xs bg-muted px-1 rounded">deep_research</code> — Comprehensive multi-step research reports (Perplexity Sonar Deep Research)</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Media Generation</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <ul className="list-disc list-inside space-y-1">
+            <li><code className="text-xs bg-muted px-1 rounded">image_generate</code> — Generate images using DALL-E or other configured providers</li>
+            <li><code className="text-xs bg-muted px-1 rounded">video_generate</code> — Generate videos using Sora or Google Veo. <strong>One video at a time</strong> — if a generation is already in progress, new requests are queued until it completes (prevents duplicate videos).</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Code & Files</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <ul className="list-disc list-inside space-y-1">
+            <li><code className="text-xs bg-muted px-1 rounded">python_execute</code> — Run Python code in a sandboxed WebAssembly environment. If the runtime fails to load (e.g. network issue), it auto-retries after 5 minutes — no restart needed.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">shell_execute</code> — Run shell commands in the workspace directory, or SSH to configured servers via <code className="text-xs bg-muted px-1 rounded">ssh alias "command"</code></li>
+            <li><code className="text-xs bg-muted px-1 rounded">file_write</code> — Write files to the workspace</li>
+            <li><code className="text-xs bg-muted px-1 rounded">claude_code</code> — Delegate complex coding tasks to a Claude Code subagent (web search, memory, file I/O, and scheduling included)</li>
+          </ul>
+          <p className="mt-2">{agentName} has SSH access to your configured servers — just ask it to run a command on the remote server.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Autonomous & Background Tasks</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <ul className="list-disc list-inside space-y-1">
+            <li><code className="text-xs bg-muted px-1 rounded">spawn_task</code> — Spawn a background task that runs independently of the current conversation. Useful for long-running operations.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">schedule_task</code> — Create a cron-scheduled task with a standard 5-field cron expression (e.g. <code className="text-xs bg-muted px-1 rounded">0 9 * * 1</code> for every Monday at 9am). One-shot or recurring.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">list_scheduled_tasks</code> — List all scheduled tasks with their next/last run times and enabled status.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">delete_scheduled_task</code> — Remove a scheduled task by ID.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">memory_save</code> / <code className="text-xs bg-muted px-1 rounded">memory_search</code> — Persist and retrieve information across conversations</li>
+          </ul>
+          <p className="mt-2">Scheduled tasks survive server restarts and are managed from Settings → Monitoring → Scheduled Tasks. When multiple tools are needed in a single turn, {agentName} executes them in parallel for faster results.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Meeting Transcripts (Recall AI)</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <ul className="list-disc list-inside space-y-1">
+            <li><code className="text-xs bg-muted px-1 rounded">recall_search</code> — Search across meeting transcripts</li>
+            <li><code className="text-xs bg-muted px-1 rounded">recall_meetings</code> — List recent recorded meetings</li>
+            <li><code className="text-xs bg-muted px-1 rounded">recall_create_bot</code> — Deploy a bot to record a meeting immediately or on a schedule</li>
+          </ul>
+          <p className="mt-2">When a bot finishes (<code className="text-xs bg-muted px-1 rounded">bot.done</code>) {agentName} automatically fetches the transcript, generates an AI summary, and creates a Notion entry. Fatal bot failures (<code className="text-xs bg-muted px-1 rounded">bot.fatal</code>) are logged to the Tool Error Log in System Monitor.</p>
+          <p className="mt-1 text-xs text-muted-foreground/70">Transcripts are retrieved from the Recall recordings download URL — the legacy <code className="text-xs bg-muted px-1 rounded">/transcript/</code> endpoint is not used.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionSubagents() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Subagents</h2>
+      <p className="text-muted-foreground">
+        Subagents are specialized workers that {agentName} can delegate tasks to. They handle domain-specific work like coding, research, or sales outreach.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Prompt Subagents</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>A prompt subagent uses a custom system prompt to shape {agentName}'s behavior for a specific domain. When invoked, the subagent's prompt is injected into the conversation context.</p>
+          <p>Create them in <em>Settings &gt; Subagent Library</em> by selecting type <strong>Prompt</strong> and providing the system prompt.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Webhook Subagents</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>A webhook subagent delegates work to an external workflow (e.g., an n8n webhook). {agentName} sends the user's request to the webhook URL and returns the response.</p>
+          <p>Configure them with a <strong>Webhook URL</strong> and optional <strong>Workflow ID</strong> in the subagent library.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Output Templates</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Each subagent can be assigned an <strong>Output Template</strong> that defines the structure of its responses.
+          This ensures consistent formatting — for example, a sales subagent always returns a structured proposal with specific sections.</p>
+          <p>Assign templates when creating or editing a subagent in the Subagent Library.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Managing Subagents</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <ul className="list-disc list-inside space-y-2">
+            <li>Navigate to <em>Settings &gt; Subagent Library</em> to create, edit, or delete subagents.</li>
+            <li>View the full directory at <em>/assistants</em> from the main app.</li>
+            <li>Subagents can be activated or deactivated without deleting them.</li>
+          </ul>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionSettings() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Settings Reference</h2>
+      <p className="text-muted-foreground">
+        The Settings area is organized into groups. Access it from the NavRail (desktop) or the sidebar Settings button.
+      </p>
+
+      <Card>
+        <CardContent className="text-sm pt-6">
+          <div className="space-y-4">
+            <div>
+              <p className="font-semibold text-foreground">Setup</p>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                <li><strong>Setup Wizard</strong> — Check system readiness and configure essential settings.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">{agentName}</p>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                <li><strong>System Prompts</strong> — Define the default operating instructions for the agent.</li>
+                <li><strong>Output Templates</strong> — Standardize structured responses and formatting blocks.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Subagents</p>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                <li><strong>Subagent Library</strong> — Create and manage specialized subagents.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Knowledge</p>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                <li><strong>Knowledge Base</strong> — Configure knowledge storage and upload permissions.</li>
+                <li><strong>Memory</strong> — View, manage, and review auto-extracted memories. Memories are automatically deduplicated and pruned to stay under 500 entries.</li>
+                <li><strong>Templates &amp; Projects</strong> — Create reusable templates and project workspaces.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Tools &amp; Skills</p>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                <li><strong>Tool Policies &amp; Release Notes</strong> — Control access to tools and publish updates.</li>
+                <li><strong>Skills</strong> — Enable and configure agent skills like Deep Research, code execution, etc.</li>
+                <li><strong>Trigger Rules</strong> — Map phrases to tools for deterministic routing.</li>
+                <li><strong>MCP Servers</strong> — Connect external tool servers via the Model Context Protocol.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Advanced</p>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                <li><strong>AI Providers</strong> — Configure LLM, TTS, STT, image, and video providers.</li>
+                <li><strong>Integrations</strong> — Set up Google, Notion, Recall, and Telegram connections.</li>
+                <li><strong>Heartbeat</strong> — Configure periodic autonomous scans.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Monitoring</p>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                <li><strong>System Monitor</strong> — View system health, resource usage, active tasks, and operational status. Includes a <strong>Tool Error Log</strong> card showing all failed tool executions with tool name, timestamp, conversation ID, and full error detail (expandable). Errors are capped at 500 entries and can be cleared.</li>
+                <li><strong>Scheduled Tasks</strong> — View, pause/resume, and delete cron jobs created via <code className="text-xs bg-muted px-1 rounded">schedule_task</code>. Shows next/last run times and cron expression for each job.</li>
+              </ul>
+              <p className="text-xs text-muted-foreground/70 mt-3">The system automatically cleans up expired sessions, old task records (30+ days),
+              raw usage metrics (90+ days), and low-relevance memories on an hourly schedule.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionIntegrations() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Integrations</h2>
+      <p className="text-muted-foreground">
+        Connect external services to expand {agentName}'s capabilities. Configure all integrations in <em>Settings &gt; Integrations</em>.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Google Workspace</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Enables Calendar, Gmail, and Google Drive tools. Multiple Google accounts are supported — all read tools fan out across all connected accounts and label results by account.</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>Go to <em>Settings &gt; Integrations</em>.</li>
+            <li>Enter your Google OAuth <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
+            <li>Click <strong>Connect Google</strong> and authorize access.</li>
+            <li>Repeat to connect additional Google accounts (e.g. Work, Agency, Personal).</li>
+          </ol>
+          <p>Write tools (<code className="text-xs bg-muted px-1 rounded">gmail_send</code>, <code className="text-xs bg-muted px-1 rounded">calendar_create_event</code>, etc.) accept an optional <code className="text-xs bg-muted px-1 rounded">account</code> parameter to target a specific connected account.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">GoHighLevel (CRM)</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Two GHL sub-accounts are connected via MCP, each exposing 36+ tools for contacts, opportunities, pipelines, calendars, conversations, workflows, and invoices.</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li><strong>Primary Account - HighLevel</strong> — <em>default account.</em> {agentName} uses this automatically for all GHL requests.</li>
+            <li><strong>Secondary Account - HighLevel</strong> — only activated when you explicitly mention the secondary account.</li>
+          </ul>
+          <p>No need to specify the account for primary work. Just ask {agentName} to search contacts, update opportunities, etc.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Gamma (Presentations)</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>{agentName} can create polished slide decks and documents via Gamma. Ask {agentName} to "create a presentation on X" and it will generate a Gamma deck with your content.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Notion</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Enables searching and reading Notion pages and databases.</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>Go to <em>Settings &gt; Integrations</em>.</li>
+            <li>Enter your Notion <strong>API Key</strong> (from Notion's integration settings).</li>
+            <li>Ensure the integration has access to the pages you want {agentName} to search.</li>
+          </ol>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Recall AI (Meeting Transcripts)</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Record and search meeting transcripts. When a bot finishes, {agentName} automatically generates a summary and saves it to Notion.</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>Enter your <strong>Recall API Key</strong> in <em>Settings &gt; Integrations</em>.</li>
+            <li>Optionally configure the region (default: us-west-2).</li>
+            <li>In the <a href="https://us-west-2.recall.ai/dashboard/webhooks" className="underline" target="_blank" rel="noopener noreferrer">Recall dashboard → Webhooks</a>, add a webhook pointing to <code className="text-xs bg-muted px-1 rounded">https://atlas.c4saas.com/api/webhooks/recall</code> with events <strong>bot.done</strong> and <strong>bot.fatal</strong>.</li>
+            <li>Optionally set <code className="text-xs bg-muted px-1 rounded">RECALL_WEBHOOK_SECRET</code> in server env to enable HMAC signature verification on incoming webhooks.</li>
+          </ol>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Telegram</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Chat with {agentName} via Telegram for on-the-go access.</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>Create a bot via <strong>@BotFather</strong> on Telegram.</li>
+            <li>Enter the bot token in <em>Settings &gt; Integrations</em>.</li>
+            <li>Specify authorized Telegram user IDs for security.</li>
+          </ol>
+          <p>{agentName} responds to messages via Telegram with full tool access (calendar, email, etc.).</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionHeartbeat() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Heartbeat</h2>
+      <p className="text-muted-foreground">
+        Heartbeat is {agentName}'s autonomous periodic scan. It proactively checks your calendar, emails, tasks, and system health — then sends you a summary.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">How It Works</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <ol className="list-decimal list-inside space-y-2">
+            <li>Configure the scan schedule in <em>Settings &gt; Heartbeat</em> (e.g., every morning at 8am).</li>
+            <li>Define a checklist of items to scan (upcoming meetings, unread emails, pending tasks, etc.).</li>
+            <li>Choose a delivery channel — Telegram, email, or in-app notification.</li>
+            <li>{agentName} runs the scan autonomously and sends a formatted summary.</li>
+          </ol>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Manual Trigger</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <p>You can trigger a heartbeat scan manually from the Heartbeat settings page using the <strong>Run Now</strong> button. This is useful for testing your configuration.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionMcp() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">MCP Servers</h2>
+      <p className="text-muted-foreground">
+        The Model Context Protocol (MCP) lets you connect external tool servers to extend {agentName}'s capabilities beyond the built-in tools.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">What is MCP?</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>MCP is an open protocol for connecting AI assistants to external tools and data sources. Each MCP server exposes a set of tools that {agentName} can invoke during conversations.</p>
+          <p>Examples: a database query tool, a CRM search tool, a custom API wrapper, or a specialized calculation engine.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Adding a Server</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <ol className="list-decimal list-inside space-y-2">
+            <li>Go to <em>Settings &gt; MCP Servers</em>.</li>
+            <li>Click <strong>Add Server</strong> and enter the server URL and name.</li>
+            <li>The server's tools will appear in {agentName}'s tool inventory automatically.</li>
+            <li>Connection status is shown via the health indicator dots in the navigation rail.</li>
+          </ol>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Connected Servers</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Two MCP servers are currently active:</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li><strong>Primary Account - HighLevel</strong> — GoHighLevel CRM for primary account (36+ tools)</li>
+            <li><strong>Secondary Account - HighLevel</strong> — GoHighLevel CRM for secondary account (36+ tools)</li>
+          </ul>
+          <p>Tools from each server are prefixed with the server name, making it easy to target a specific account in your requests.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionShortcuts() {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Keyboard Shortcuts</h2>
+      <p className="text-muted-foreground">
+        Quick navigation shortcuts for the settings area. These work when no text input is focused.
+      </p>
+
+      <Card>
+        <CardContent className="text-sm pt-6">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Go to Chat</span>
+              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">g</kbd>{' '}
+              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">u</kbd>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Go to Settings</span>
+              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">g</kbd>{' '}
+              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">a</kbd>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground/60 mt-4">
+            Press keys in sequence (not held together). The sequence resets after 1 second.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionApi() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">API Reference</h2>
+      <p className="text-muted-foreground">
+        {agentName} exposes a REST API for programmatic access. Below are key endpoint groups.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Authentication</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <div className="space-y-1 font-mono text-xs">
+            <p><span className="text-green-500">POST</span> /api/auth/login</p>
+            <p><span className="text-green-500">POST</span> /api/auth/logout</p>
+            <p><span className="text-blue-500">GET</span> /api/auth/user</p>
+            <p><span className="text-blue-500">GET</span> /api/auth/setup-status</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Chat</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <div className="space-y-1 font-mono text-xs">
+            <p><span className="text-blue-500">GET</span> /api/chats</p>
+            <p><span className="text-green-500">POST</span> /api/chats</p>
+            <p><span className="text-blue-500">GET</span> /api/chats/:id/messages</p>
+            <p><span className="text-green-500">POST</span> /api/chats/:id/messages</p>
+            <p><span className="text-yellow-500">PATCH</span> /api/chats/:id/rename</p>
+            <p><span className="text-yellow-500">PATCH</span> /api/chats/:id/move-to-project</p>
+            <p><span className="text-red-500">DELETE</span> /api/chats/:id</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Admin Settings</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <div className="space-y-1 font-mono text-xs">
+            <p><span className="text-blue-500">GET</span> /api/admin/settings</p>
+            <p><span className="text-orange-500">PUT</span> /api/admin/settings</p>
+            <p><span className="text-blue-500">GET</span> /api/admin/system-prompts</p>
+            <p><span className="text-green-500">POST</span> /api/admin/system-prompts</p>
+            <p><span className="text-blue-500">GET</span> /api/admin/templates</p>
+            <p><span className="text-blue-500">GET</span> /api/admin/assistants</p>
+            <p><span className="text-blue-500">GET</span> /api/admin/mcp/servers</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">User Preferences</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <div className="space-y-1 font-mono text-xs">
+            <p><span className="text-blue-500">GET</span> /api/user/preferences</p>
+            <p><span className="text-orange-500">PUT</span> /api/user/preferences</p>
+            <p><span className="text-blue-500">GET</span> /api/knowledge</p>
+            <p><span className="text-green-500">POST</span> /api/knowledge</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Heartbeat &amp; Health</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <div className="space-y-1 font-mono text-xs">
+            <p><span className="text-blue-500">GET</span> /api/health/heartbeat</p>
+            <p><span className="text-blue-500">GET</span> /api/admin/heartbeat/status</p>
+            <p><span className="text-green-500">POST</span> /api/admin/heartbeat/trigger</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Scheduled Tasks (Cron Jobs)</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <div className="space-y-1 font-mono text-xs">
+            <p><span className="text-blue-500">GET</span> /api/cron-jobs</p>
+            <p><span className="text-green-500">POST</span> /api/cron-jobs</p>
+            <p><span className="text-yellow-500">PATCH</span> /api/cron-jobs/:id <span className="font-sans text-muted-foreground/70">— toggle enabled/paused</span></p>
+            <p><span className="text-red-500">DELETE</span> /api/cron-jobs/:id</p>
+          </div>
+          <p className="mt-2">Cron jobs are DB-persisted and survive server restarts. Each job fires as an agent task at the scheduled time.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Agent Tasks</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <div className="space-y-1 font-mono text-xs">
+            <p><span className="text-blue-500">GET</span> /api/agent/tasks <span className="font-sans text-muted-foreground/70">— ?status=running|pending|completed|failed</span></p>
+            <p><span className="text-blue-500">GET</span> /api/agent/tasks/:id</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Tool Error Log</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <div className="space-y-1 font-mono text-xs">
+            <p><span className="text-blue-500">GET</span> /api/admin/tool-errors <span className="font-sans text-muted-foreground/70">— ?limit=100 (max 500)</span></p>
+            <p><span className="text-red-500">DELETE</span> /api/admin/tool-errors <span className="font-sans text-muted-foreground/70">— clear all errors</span></p>
+          </div>
+          <p className="mt-2">All failed tool executions are persisted here. Capped at 500 entries (oldest trimmed automatically).</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Rate Limits</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <p className="mb-2">In-memory rate limits apply per endpoint group (resets every 60 seconds):</p>
+          <div className="space-y-1 text-xs font-mono">
+            <p>/api/chat/completions <span className="font-sans text-muted-foreground/70">— 60 req/min</span></p>
+            <p>/api/uploads <span className="font-sans text-muted-foreground/70">— 30 req/min</span></p>
+            <p>/api/knowledge/* <span className="font-sans text-muted-foreground/70">— 20 req/min</span></p>
+          </div>
+          <p className="mt-2">Exceeding a limit returns <code className="text-xs bg-muted px-1 rounded">HTTP 429</code>. Limits reset server-side every 60 seconds. Designed to protect against runaway agent loops.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+const SECTION_COMPONENTS: Record<SectionId, () => JSX.Element> = {
+  'getting-started': SectionGettingStarted,
+  chat: SectionChat,
+  memory: SectionMemory,
+  workspace: SectionWorkspace,
+  tools: SectionTools,
+  subagents: SectionSubagents,
+  settings: SectionSettings,
+  integrations: SectionIntegrations,
+  heartbeat: SectionHeartbeat,
+  mcp: SectionMcp,
+  shortcuts: SectionShortcuts,
+  api: SectionApi,
+};
+
+export default function DocsPage() {
+  const { agentName } = useBranding();
+  const [activeSection, setActiveSection] = useState<SectionId>('getting-started');
+  const [, setLocation] = useLocation();
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredSections = searchTerm.trim()
+    ? SECTIONS.filter((s) => s.label.toLowerCase().includes(searchTerm.toLowerCase()))
+    : SECTIONS;
+
+  const ActiveComponent = SECTION_COMPONENTS[activeSection];
+
+  return (
+    <div className="flex h-dvh max-h-dvh w-full overflow-hidden bg-background">
+      {/* Sidebar */}
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-border/60 bg-card/40">
+        <div className="p-4 border-b border-border/40">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground hover:text-foreground mb-3 -ml-2"
+            onClick={() => setLocation('/settings')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Settings
+          </Button>
+          <h1 className="text-lg font-bold tracking-tight">Documentation</h1>
+          <p className="text-xs text-muted-foreground mt-1">{agentName} User Guide</p>
+        </div>
+
+        <div className="px-3 py-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search docs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-lg border border-border/60 bg-background pl-9 pr-3 py-1.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/40"
+            />
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1">
+          <nav className="px-2 py-1 space-y-0.5">
+            {filteredSections.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveSection(id)}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+                  activeSection === id
+                    ? 'bg-primary/10 font-medium text-primary'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </ScrollArea>
+      </aside>
+
+      {/* Mobile header */}
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        <div className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-border/40 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setLocation('/settings')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-base font-bold">Docs</h1>
+          <div className="ml-auto">
+            <select
+              value={activeSection}
+              onChange={(e) => setActiveSection(e.target.value as SectionId)}
+              className="rounded-lg border border-border/60 bg-background px-2 py-1 text-sm"
+            >
+              {SECTIONS.map(({ id, label }) => (
+                <option key={id} value={id}>{label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Content */}
+        <ScrollArea className="flex-1">
+          <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8">
+            <ActiveComponent />
+          </div>
+        </ScrollArea>
+      </div>
+    </div>
+  );
+}

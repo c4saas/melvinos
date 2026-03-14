@@ -1,0 +1,82 @@
+import { toolRegistry } from '../tool-registry';
+import { webSearchTool } from './web-search';
+import { pythonExecuteTool } from './python-execute';
+import { fileReadTool } from './file-read';
+import { fileWriteTool } from './file-write';
+import { fileEditTool } from './file-edit';
+import { shellExecuteTool } from './shell-execute';
+import { webFetchTool } from './web-fetch';
+import { deepResearchTool } from './deep-research';
+import { memorySaveTool, memorySearchTool, memoryDeleteTool, setMemoryStorage } from './memory-store';
+import { skillUpdateTool, setSkillStorage } from './skill-update';
+import { imageGenerateTool } from './image-generate';
+import { gmailSearchTool } from './gmail-search';
+import { gmailReadTool, gmailSendTool, gmailModifyTool } from './gmail-actions';
+import { calendarEventsTool } from './calendar-events';
+import { calendarCreateEventTool, calendarUpdateEventTool, calendarDeleteEventTool } from './calendar-actions';
+import { recallSearchTool, recallListMeetingsTool } from './recall-search';
+import { recallCreateBotTool } from './recall-create-bot';
+import { notionSearchTool } from './notion-search';
+import { notionReadPageTool, notionCreatePageTool, notionUpdatePageTool } from './notion-crud';
+import { videoGenerateTool } from './video-generate';
+import { driveSearchTool, driveReadTool, driveWriteTool } from './drive-tools';
+import { spawnTaskTool } from './spawn-task';
+import { consolidateDataTool } from './consolidate-data';
+import { claudeCodeTool } from './claude-code';
+import { gammaCreateTool } from './gamma-create';
+import { scheduleTaskTool, listScheduledTasksTool, deleteScheduledTaskTool } from './cron-tools';
+import { sshExecuteTool } from './ssh-execute';
+import type { IStorage } from '../../storage';
+
+let initialized = false;
+
+export function registerAllTools(storage: IStorage): void {
+  if (initialized) return;
+  initialized = true;
+
+  setMemoryStorage(storage);
+  setSkillStorage(storage);
+
+  toolRegistry.register(webSearchTool);
+  toolRegistry.register(pythonExecuteTool);
+  toolRegistry.register(fileReadTool);
+  toolRegistry.register(fileWriteTool);
+  toolRegistry.register(fileEditTool);
+  toolRegistry.register(shellExecuteTool);
+  toolRegistry.register(webFetchTool);
+  toolRegistry.register(deepResearchTool);
+  toolRegistry.register(memorySaveTool);
+  toolRegistry.register(memorySearchTool);
+  toolRegistry.register(memoryDeleteTool);
+  toolRegistry.register(imageGenerateTool);
+  toolRegistry.register(gmailSearchTool);
+  toolRegistry.register(gmailReadTool);
+  toolRegistry.register(gmailSendTool);
+  toolRegistry.register(gmailModifyTool);
+  toolRegistry.register(calendarEventsTool);
+  toolRegistry.register(calendarCreateEventTool);
+  toolRegistry.register(calendarUpdateEventTool);
+  toolRegistry.register(calendarDeleteEventTool);
+  toolRegistry.register(recallSearchTool);
+  toolRegistry.register(recallListMeetingsTool);
+  toolRegistry.register(recallCreateBotTool);
+  toolRegistry.register(notionSearchTool);
+  toolRegistry.register(notionReadPageTool);
+  toolRegistry.register(notionCreatePageTool);
+  toolRegistry.register(notionUpdatePageTool);
+  toolRegistry.register(videoGenerateTool);
+  toolRegistry.register(driveSearchTool);
+  toolRegistry.register(driveReadTool);
+  toolRegistry.register(driveWriteTool);
+  toolRegistry.register(spawnTaskTool);
+  toolRegistry.register(consolidateDataTool);
+  toolRegistry.register(claudeCodeTool);
+  toolRegistry.register(gammaCreateTool);
+  toolRegistry.register(scheduleTaskTool);
+  toolRegistry.register(listScheduledTasksTool);
+  toolRegistry.register(deleteScheduledTaskTool);
+  toolRegistry.register(sshExecuteTool);
+  toolRegistry.register(skillUpdateTool);
+}
+
+export { toolRegistry };
