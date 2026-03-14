@@ -74,7 +74,7 @@ function HealthDots() {
   );
 }
 
-function MelvinBrand() {
+function BrandMark() {
   return (
     <div className="flex items-center justify-center w-full h-14 border-b border-border/50">
       <div className="relative flex items-center justify-center w-8 h-8">
@@ -122,7 +122,7 @@ function NavRail({ onToggleSidebar, sidebarOpen }: {
       aria-label="Primary navigation"
     >
       {/* Brand mark */}
-      <MelvinBrand />
+      <BrandMark />
 
       {/* Sidebar toggle */}
       <div className="flex flex-col items-center w-full pt-3 pb-2 gap-1">

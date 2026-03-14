@@ -106,7 +106,15 @@ BEGIN
   END IF;
 END $$;
 
-ALTER TABLE IF EXISTS "releases" RENAME COLUMN "expert_ids" TO "assistant_ids";
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'releases' AND column_name = 'expert_ids'
+  ) THEN
+    ALTER TABLE "releases" RENAME COLUMN "expert_ids" TO "assistant_ids";
+  END IF;
+END $$;
 ALTER TABLE IF EXISTS "releases" ALTER COLUMN "assistant_ids" SET DEFAULT '[]'::jsonb;
 UPDATE "releases" SET "assistant_ids" = '[]'::jsonb WHERE "assistant_ids" IS NULL;
 

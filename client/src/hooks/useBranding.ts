@@ -6,8 +6,8 @@ interface Branding {
   platformName: string;
 }
 
-const DEFAULT_AGENT_NAME = 'Melvin';
-const DEFAULT_PLATFORM_NAME = 'Autonomous Intelligence Platform';
+const DEFAULT_AGENT_NAME = 'Atlas';
+const DEFAULT_PLATFORM_NAME = 'Atlas AI Platform';
 
 /**
  * Provides whitelabel-safe branding values sourced from user preferences.

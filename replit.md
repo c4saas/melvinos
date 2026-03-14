@@ -67,7 +67,7 @@ The application integrates with Anthropic SDK for Claude models, and supports Op
 Uses Email/Password Authentication with Passport Local Strategy, including registration, login, logout, and a forgot password flow. Session management uses HTTP-only secure cookies with PostgreSQL storage. Passwords are hashed with bcrypt. A Pro Plan System manages access and features based on user subscription.
 
 **Role-Based Access Control (RBAC)**:
-- **Super Admin**: `austin@c4saas.com` is automatically promoted to super_admin with full administrative privileges. Displays "Super Admin" badge (purple).
+- **Super Admin**: The first registered user or a seeded admin account is promoted to super_admin with full administrative privileges. Displays "Super Admin" badge (purple).
 - **Admin**: First user is auto-promoted if no super admin exists. Limited admin access with view-only restrictions on core system settings.
 - **User**: Default role for regular users with no admin access.
 

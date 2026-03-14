@@ -1,6 +1,6 @@
 # ─────────────────────────────────────────────────────────────
-#  MelvinOS — Docker Compose
-#  Services: atlas (app) + postgres (database) + claude-code
+#  Atlas — Docker Compose
+#  Services: app + postgres + claude-code
 #
 #  Usage:
 #    cp .env.example .env   # fill in your keys
@@ -14,7 +14,7 @@ services:
   # ── PostgreSQL ──────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: atlas_postgres
+    container_name: ${COMPOSE_PROJECT_NAME:-atlas}_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: atlasai
@@ -31,12 +31,12 @@ services:
       retries: 5
       start_period: 20s
 
-  # ── Atlas AI App ────────────────────────────────────────────
+  # ── Atlas App ───────────────────────────────────────────────
   atlas:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: atlas_app
+    container_name: ${COMPOSE_PROJECT_NAME:-atlas}_app
     restart: unless-stopped
     depends_on:
       postgres:
@@ -47,22 +47,16 @@ services:
       NODE_ENV: production
       PORT: 3001
       AGENT_WORKSPACE_PATH: /app/workspace
-      # Override DATABASE_URL to point at the internal postgres service
       DATABASE_URL: postgres://atlas:${POSTGRES_PASSWORD:-changeme_in_production}@postgres:5432/atlasai
-      # Qdrant vector DB (runs as a separate service on the host)
-      QDRANT_URL: http://qdrant:6333
+      QDRANT_URL: ${QDRANT_URL:-http://localhost:6333}
     ports:
       - "${HOST_PORT:-3001}:3001"
     volumes:
-      # Persist uploaded files across container restarts
       - atlas_uploads:/app/uploads
-      # Agent workspace for file I/O tools
       - agent_workspace:/app/workspace
-      # SSH keys source (from claude_ssh volume) — entrypoint copies to atlas user's .ssh
       - claude_ssh:/var/ssh-keys-src:ro
     networks:
       - atlas_net
-      - qdrant_net
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3001/api/auth/csrf-token').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))\""]
       interval: 30s
@@ -75,20 +69,15 @@ services:
     build:
       context: ./claude-code
       dockerfile: Dockerfile
-    container_name: atlas_claude
+    container_name: ${COMPOSE_PROJECT_NAME:-atlas}_claude
     restart: unless-stopped
     environment:
-      # API key intentionally omitted — using Claude Max subscription auth
       ANTHROPIC_API_KEY: ""
     ports:
-      # SSH available if needed: ssh claude@localhost -p 2222
-      - "2222:22"
+      - "${CLAUDE_SSH_PORT:-2222}:22"
     volumes:
-      # Persist Claude Code config across restarts
       - claude_auth:/home/claude/.claude
-      # Shared workspace — same volume Atlas uses for file I/O
       - agent_workspace:/workspace
-      # Persist SSH keys and config for outbound connections
       - claude_ssh:/root/.ssh
     networks:
       - atlas_net
@@ -108,7 +97,3 @@ volumes:
 networks:
   atlas_net:
     driver: bridge
-  # External Qdrant network — managed by the memory-core compose project
-  qdrant_net:
-    external: true
-    name: memory-core_default

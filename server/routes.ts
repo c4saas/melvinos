@@ -118,7 +118,7 @@ function rateLimitMiddleware(maxReq: number, windowMs: number, label: string) {
     next();
   };
 }
-const DEFAULT_N8N_BASE_URL = 'https://zap.c4saas.com';
+const DEFAULT_N8N_BASE_URL = process.env.N8N_BASE_URL || '';
 const TEMPLATE_FILE_OWNER = 'admin-templates';
 const TEMPLATE_MAX_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -5721,7 +5721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── Recall AI Webhook — fires when a bot finishes or fails ──────────────────
-  // Register this URL in Recall dashboard: POST https://atlas.c4saas.com/api/webhooks/recall
+  // Register this URL in Recall dashboard: POST https://your-domain.com/api/webhooks/recall
   // Events: bot.done, bot.fatal
   app.post('/api/webhooks/recall', async (req, res) => {
     try {

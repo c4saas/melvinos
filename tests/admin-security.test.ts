@@ -38,7 +38,7 @@ test('bootstrap registration promotes only the first account to super_admin', as
 
 test('registration flow keeps unprivileged emails as regular users', async () => {
   const seededSuperAdmin = createUser({ role: 'super_admin', email: 'owner@example.com' });
-  const registrant = createUser({ email: 'austin@c4saas.com', role: 'user' });
+  const registrant = createUser({ email: 'user@example.com', role: 'user' });
   const storage = stubStorage([seededSuperAdmin, registrant]);
 
   const ensured = await ensureAdminRole(registrant, storage);
