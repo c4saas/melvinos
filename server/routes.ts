@@ -805,10 +805,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return attachment.url;
     };
 
-    try {
-      const settingsData = platformSettings?.data as Record<string, any> | undefined;
-      if (settingsData) extraToolContext.platformSettings = settingsData;
-    } catch { /* ignore */ }
+    const settingsData = platformSettings?.data as Record<string, any> | undefined;
+    if (settingsData) extraToolContext.platformSettings = settingsData;
 
     try {
       const googleTokens = await storage.getOAuthTokens(user.id, 'google');
@@ -847,7 +845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (clientId) extraToolContext.googleClientId = clientId;
       if (clientSecret) extraToolContext.googleClientSecret = clientSecret;
-    } catch { /* ignore */ }
+    } catch (err) { console.debug('[tool-context] Google OAuth load failed — Google tools unavailable:', err instanceof Error ? err.message : err); }
 
     try {
       const recallSettings = (platformSettings.data as any)?.integrations?.recall;
@@ -855,7 +853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         extraToolContext.recallApiKey = recallSettings.apiKey;
         extraToolContext.recallRegion = recallSettings.region || 'us-west-2';
       }
-    } catch { /* ignore */ }
+    } catch (err) { console.debug('[tool-context] Recall settings load failed — Recall tools unavailable:', err instanceof Error ? err.message : err); }
 
     // Load chat history
     const allMessages = await storage.getChatMessages(chatId);
@@ -960,7 +958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }, primary.accountLabel ?? 'default');
         };
       }
-    } catch { /* no google creds */ }
+    } catch (err) { console.debug('[consolidate] Google OAuth load failed:', err instanceof Error ? err.message : err); }
 
     // Recall
     let recallApiKey: string | undefined;
@@ -971,7 +969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recallApiKey = recallSettings.apiKey;
         recallRegion = recallSettings.region || 'us-west-2';
       }
-    } catch { /* no recall creds */ }
+    } catch (err) { console.debug('[consolidate] Recall settings load failed:', err instanceof Error ? err.message : err); }
 
     // Run pipeline
     const { runConsolidationPipeline } = await import('./agent/data-consolidation/pipeline');
@@ -1484,8 +1482,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/auth/csrf-token', (req, res) => {
-    // Token already set by attachCsrfToken middleware — just return it
-    const token = req.session?.csrfToken ?? req.cookies?.['XSRF-TOKEN'] ?? generateCsrfToken();
+    // Token set and refreshed into XSRF-TOKEN cookie by attachCsrfToken middleware.
+    // req.csrfToken is the canonical value — same as what's in the outgoing cookie.
+    const token = (req as any).csrfToken as string;
     res.json({ csrfToken: token });
   });
 
@@ -2979,7 +2978,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.write(': ping\n\n');
         }
       }, 25000);
-      req.on('close', () => clearInterval(keepAliveTimer));
+      const clearKeepAlive = () => clearInterval(keepAliveTimer);
+      req.on('close', clearKeepAlive);
+      res.on('finish', clearKeepAlive);
 
       // ─── /usage slash command — bypass AI, return Claude Code account info ───
       if (prepared.lastMessage?.content?.trim() === '/usage') {
@@ -3397,12 +3398,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           // Pass platform settings so tools can read admin-configured API keys
-          try {
-            const settingsData = platformSettingsForFallback?.data as Record<string, any> | undefined;
-            if (settingsData) {
-              extraToolContext.platformSettings = settingsData;
-            }
-          } catch { /* ignore */ }
+          const settingsData = platformSettingsForFallback?.data as Record<string, any> | undefined;
+          if (settingsData) extraToolContext.platformSettings = settingsData;
 
           try {
             const googleTokens = await storage.getOAuthTokens(prepared.userId, 'google');
@@ -4800,7 +4797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { join } = await import('path');
       const execAsync = promisify(exec);
 
-      const keyPath = join(tmpdir(), `atlas_ssh_test_${Date.now()}.pem`);
+      const keyPath = join(tmpdir(), `melvinos_ssh_test_${Date.now()}.pem`);
       try {
         await writeFile(keyPath, server.privateKey.trimEnd() + '\n', { mode: 0o600 });
         const port = server.port ?? 22;
@@ -4812,10 +4809,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           '-i', keyPath,
           '-p', String(port),
           `${server.username}@${server.host}`,
-          'echo atlas_ok',
+          'echo melvinos_ok',
         ].join(' ');
         const { stdout } = await execAsync(cmd, { timeout: 12000 });
-        const ok = stdout.trim().includes('atlas_ok');
+        const ok = stdout.trim().includes('melvinos_ok');
         res.json({ success: ok, message: ok ? 'Connection successful' : 'Unexpected response from server' });
       } catch (err: any) {
         res.json({ success: false, error: err.stderr?.trim() || err.message });
@@ -5128,7 +5125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (google?.enabled && google?.clientId && google?.clientSecret) {
         return { clientId: google.clientId, clientSecret: google.clientSecret };
       }
-    } catch { /* ignore */ }
+    } catch (err) { console.debug('[google-oauth] Could not read Google credentials from settings:', err instanceof Error ? err.message : err); }
     return null;
   }
 
@@ -5635,7 +5632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: `No ${platform} account connected. Connect Google via your profile first.` });
       }
 
-      // Get Atlas's Google OAuth client credentials
+      // Get MelvinOS's Google OAuth client credentials
       const googleConfig = (settings?.data as any)?.integrations?.google;
       if (!googleConfig?.clientId || !googleConfig?.clientSecret) {
         return res.status(400).json({ error: 'Google OAuth app not configured in Integrations settings.' });

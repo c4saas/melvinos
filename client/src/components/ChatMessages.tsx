@@ -14,8 +14,8 @@ import type { Message as MessageType, Reaction, MessageMetadata } from '@shared/
 import { CodeBlock } from './CodeBlock';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { VoicePlaybackControls } from './VoicePlaybackControls';
-import { AtlasWelcomeIcon } from './icons/AtlasWelcomeIcon';
-import { AtlasWelcome as AtlasWelcomeState } from './AtlasStatusIndicator';
+import { MelvinOSWelcomeIcon } from './icons/MelvinOSWelcomeIcon';
+import { MelvinOSWelcome as MelvinOSWelcomeState } from './MelvinOSStatusIndicator';
 import { AgentActivityPanel } from './AgentActivityPanel';
 import type {
   VoicePlaybackController,
@@ -353,7 +353,7 @@ function renderTableBlock(
                   <td
                     key={`${bodyKeyBase}-${rowIndex}-${cellIndex}`}
                     className={cn(
-                      'px-3 py-2 align-top min-w-[6rem] text-[11px] leading-4 sm:text-[13px] sm:leading-5',
+                      'px-3 py-2 align-top min-w-[6rem] text-[10px] leading-4 sm:text-[11px] sm:leading-4 break-words',
                       isUser ? 'text-foreground' : 'text-card-foreground',
                       tableAlignmentClassMap[table.alignments[cellIndex] ?? 'left'],
                     )}
@@ -1268,7 +1268,7 @@ const ChatMessages = forwardRef<ChatMessagesHandle, ChatMessagesProps>(({
       >
         <div className="mx-auto w-full max-w-[800px] space-y-0">
           {messages.length === 0 && !isLoading && !pendingUserMessage && !streamingAssistantMessage && (
-            <AtlasWelcomeState />
+            <MelvinOSWelcomeState />
           )}
 
           {messages.map((message) => {

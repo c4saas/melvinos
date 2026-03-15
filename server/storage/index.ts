@@ -116,19 +116,11 @@ const deepMerge = (target: Record<string, unknown>, source: Record<string, unkno
   }
 };
 
-const stripLegacyAiAgentsSettings = (value: unknown): void => {
-  if (value && typeof value === 'object' && 'aiAgents' in (value as Record<string, unknown>)) {
-    delete (value as Record<string, unknown>).aiAgents;
-  }
-};
-
 const mergeWithDefaultPlatformSettings = (input: unknown): PlatformSettingsData => {
   const merged = structuredClone(defaultPlatformSettings) as PlatformSettingsData;
 
   if (isPlainObject(input)) {
-    const clone = structuredClone(input);
-    stripLegacyAiAgentsSettings(clone);
-    deepMerge(merged as unknown as Record<string, unknown>, clone);
+    deepMerge(merged as unknown as Record<string, unknown>, structuredClone(input));
   }
 
   return merged;
@@ -153,20 +145,13 @@ const normalizeProviderLimits = (data: PlatformSettingsData): void => {
 };
 
 const parsePlatformSettingsData = (input: unknown): PlatformSettingsData => {
-  const rawClone = input === undefined || input === null ? undefined : structuredClone(input);
-  stripLegacyAiAgentsSettings(rawClone);
-  const merged = mergeWithDefaultPlatformSettings(rawClone ?? undefined);
-  stripLegacyAiAgentsSettings(merged);
+  const merged = mergeWithDefaultPlatformSettings(input ?? undefined);
   normalizeProviderLimits(merged);
-  const parsed = platformSettingsDataSchema.parse(structuredClone(merged));
-  return parsed;
+  return platformSettingsDataSchema.parse(structuredClone(merged));
 };
 
 const preparePlatformSettingsPayload = (data: PlatformSettingsData): PlatformSettingsData => {
-  const rawClone = structuredClone(data);
-  stripLegacyAiAgentsSettings(rawClone);
-  const parsed = platformSettingsDataSchema.parse(rawClone);
-  return parsed;
+  return platformSettingsDataSchema.parse(structuredClone(data));
 };
 
 export interface CreateSystemPromptOptions {
@@ -1915,10 +1900,12 @@ export class MemStorage implements IStorage {
     return true;
   }
 
-  // Agent memory stubs (MemStorage not used in production)
+  // Agent memory stubs — MemStorage is in-memory only; data is not persisted across restarts.
+  // If these are called in production it means the DB connection failed — log a warning.
   async listAgentMemories(): Promise<AgentMemory[]> { return []; }
   async searchAgentMemories(): Promise<AgentMemory[]> { return []; }
   async createAgentMemory(memory: InsertAgentMemory): Promise<AgentMemory> {
+    console.warn('[MemStorage] createAgentMemory called — running without DB, memory will not persist');
     return { id: randomUUID(), ...memory, relevanceScore: memory.relevanceScore ?? 50, source: memory.source ?? null, createdAt: new Date(), updatedAt: new Date() } as AgentMemory;
   }
   async updateAgentMemory(): Promise<AgentMemory | undefined> { return undefined; }
@@ -1928,6 +1915,7 @@ export class MemStorage implements IStorage {
   async listAgentTasks(): Promise<AgentTask[]> { return []; }
   async getAgentTask(): Promise<AgentTask | undefined> { return undefined; }
   async createAgentTask(task: InsertAgentTask): Promise<AgentTask> {
+    console.warn('[MemStorage] createAgentTask called — running without DB, task will not persist');
     return { id: randomUUID(), ...task, status: 'pending', progress: 0, error: null, output: null, startedAt: null, completedAt: null, createdAt: new Date() } as AgentTask;
   }
   async updateAgentTask(): Promise<AgentTask | undefined> { return undefined; }
@@ -1936,6 +1924,7 @@ export class MemStorage implements IStorage {
   async listCronJobs(): Promise<CronJob[]> { return []; }
   async getCronJob(): Promise<CronJob | undefined> { return undefined; }
   async createCronJob(job: InsertCronJob): Promise<CronJob> {
+    console.warn('[MemStorage] createCronJob called — running without DB, job will not persist');
     return { id: randomUUID(), ...job, lastRunAt: null, createdAt: new Date(), updatedAt: new Date() } as CronJob;
   }
   async updateCronJob(): Promise<CronJob | undefined> { return undefined; }

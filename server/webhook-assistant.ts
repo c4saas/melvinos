@@ -107,7 +107,7 @@ export async function invokeWebhookAssistant(options: InvokeWebhookAssistantOpti
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Atlas-Webhook-Version": "2024-12-01",
+        "MelvinOS-Webhook-Version": "2024-12-01",
         ...(headers ?? {}),
       },
       body: JSON.stringify(payload),

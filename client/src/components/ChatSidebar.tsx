@@ -85,6 +85,7 @@ interface ChatSidebarProps {
   onNewChat: (projectId?: string | null) => void;
   chats: Chat[];
   activeChat: string | null;
+  streamingChatId?: string | null;
   onChatSelect: (chatId: string) => void;
   onChatArchive: (chatId: string) => void;
   onChatDelete: (chatId: string) => void;
@@ -102,6 +103,7 @@ export function ChatSidebar({
   onNewChat,
   chats,
   activeChat,
+  streamingChatId,
   onChatSelect,
   onChatArchive,
   onChatDelete,
@@ -539,6 +541,13 @@ export function ChatSidebar({
           {/* Active indicator bar */}
           {activeChat === chat.id && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r bg-primary" />
+          )}
+          {/* Streaming pulse dot */}
+          {streamingChatId === chat.id && (
+            <span className="absolute right-8 top-1/2 -translate-y-1/2 flex h-2 w-2 pointer-events-none">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
           )}
           <div className="min-w-0 flex-1 pl-1">
             <p

@@ -14,7 +14,7 @@ import {
 import type { AdminTicket } from '../types';
 
 const sampleTickets: AdminTicket[] = [
-  { id: 'ticket-1001', status: 'open', assignee: 'sam@atlas.dev' },
+  { id: 'ticket-1001', status: 'open', assignee: 'sam@melvinos.com' },
   { id: 'ticket-1002', status: 'pending', assignee: null },
 ];
 
@@ -62,7 +62,7 @@ test('Ticket drawer helpers initialize state and sanitize payloads', async () =>
   const target = sampleTickets[0];
   const formState = initializeTicketFormState(target);
   assert.equal(formState.status, 'open');
-  assert.equal(formState.assignee, 'sam@atlas.dev');
+  assert.equal(formState.assignee, 'sam@melvinos.com');
 
   const unknownFormState = initializeTicketFormState({ id: 'ticket-x', status: 'unknown' });
   assert.equal(unknownFormState.status, 'open');
@@ -84,7 +84,7 @@ test('Ticket drawer helpers initialize state and sanitize payloads', async () =>
   const result = await mockUpdateTicket({
     id: target.id,
     status: 'pending',
-    assignee: '  alex@atlas.dev  ',
+    assignee: '  alex@melvinos.com  ',
   });
 
   assert.deepEqual(result, {
@@ -92,7 +92,7 @@ test('Ticket drawer helpers initialize state and sanitize payloads', async () =>
     ticket: {
       id: target.id,
       status: 'pending',
-      assignee: 'alex@atlas.dev',
+      assignee: 'alex@melvinos.com',
     },
   });
 });

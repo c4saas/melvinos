@@ -1,7 +1,7 @@
 /**
- * Atlas Agent Status Indicator
+ * MelvinOS Agent Status Indicator
  *
- * A Jarvis-style animated status component showing Atlas agent state:
+ * A Jarvis-style animated status component showing MelvinOS agent state:
  * - Idle: steady green pulse
  * - Thinking: blue pulse (processing)
  * - Streaming: animated blue ring
@@ -13,7 +13,7 @@ import { useBranding } from '@/hooks/useBranding';
 
 type AgentStatus = 'idle' | 'thinking' | 'streaming';
 
-interface AtlasStatusIndicatorProps {
+interface MelvinOSStatusIndicatorProps {
   status?: AgentStatus;
   activity?: string | null;
   className?: string;
@@ -47,12 +47,12 @@ const statusConfig = {
   },
 };
 
-export function AtlasStatusIndicator({
+export function MelvinOSStatusIndicator({
   status = 'idle',
   activity,
   className,
   compact = false,
-}: AtlasStatusIndicatorProps) {
+}: MelvinOSStatusIndicatorProps) {
   const config = statusConfig[status];
   const Icon = config.icon;
   const isActive = status !== 'idle';
@@ -108,11 +108,11 @@ export function AtlasStatusIndicator({
 /**
  * Full-screen welcome state shown when no chat is active
  */
-export function AtlasWelcome() {
+export function MelvinOSWelcome() {
   const { agentName } = useBranding();
   return (
     <div className="flex flex-col items-center justify-center flex-1 gap-8 px-6 py-12 text-center animate-fade-in">
-      {/* Atlas orb */}
+      {/* MelvinOS orb */}
       <div className="relative flex items-center justify-center">
         {/* Outer glow ring */}
         <div className="absolute w-32 h-32 rounded-full bg-blue-500/5 animate-pulse" />

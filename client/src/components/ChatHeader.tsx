@@ -125,7 +125,7 @@ export function ChatHeader({
         className,
       )}
     >
-      {/* Left: Sidebar toggle + Atlas identity */}
+      {/* Left: Sidebar toggle + MelvinOS identity */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         <Button
           variant="ghost"
@@ -137,7 +137,7 @@ export function ChatHeader({
           <Menu className="h-4 w-4" />
         </Button>
 
-        {/* Atlas logo + status */}
+        {/* MelvinOS logo + status */}
         <button
           type="button"
           onClick={onHomeClick}

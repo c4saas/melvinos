@@ -245,7 +245,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
-   ATLAS JARVIS — COMMAND CENTER COMPONENTS
+   MELVINOS — COMMAND CENTER COMPONENTS
    ───────────────────────────────────────────────────────────── */
 @layer components {
 
@@ -478,10 +478,10 @@
     border-radius: 9999px;
   }
 
-  .formatted-response table { @apply w-full border-collapse text-sm; }
+  .formatted-response table { @apply w-full border-collapse text-xs; }
   .formatted-response thead { background-color: hsl(var(--muted) / 0.5); }
-  .formatted-response th { @apply px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground; }
-  .formatted-response td { @apply px-3 py-2 align-top text-sm leading-6 sm:px-4 sm:text-[15px]; }
+  .formatted-response th { @apply px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground; }
+  .formatted-response td { @apply px-3 py-2 align-top text-[11px] leading-4 break-words; overflow-wrap: break-word; }
   .formatted-response tbody tr { border-top: 1px solid hsl(var(--border) / 0.6); }
   .formatted-response tbody tr:nth-child(even) { background-color: hsl(var(--muted) / 0.25); }
 
@@ -524,7 +524,7 @@
   .table-responsive-user .table-stacked-row { @apply border-primary/50 bg-primary/20; }
   .table-stacked-cell  { @apply space-y-1; }
   .table-stacked-label { @apply text-[10px] font-semibold uppercase tracking-wide text-muted-foreground; }
-  .table-stacked-value { @apply text-[13px] leading-5 text-pretty; }
+  .table-stacked-value { @apply text-[11px] leading-4 text-pretty break-words; }
 
   @media (max-width: 639px) {
     .table-responsive .table-scroll { display: none; }
@@ -569,7 +569,7 @@
     pointer-events: none;
   }
 
-  /* Atlas grid background overlay */
+  /* MelvinOS grid background overlay */
   .os-grid-bg {
     background-image: var(--os-grid-image, linear-gradient(rgba(59,130,246,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.025) 1px, transparent 1px));
     background-size: 40px 40px;

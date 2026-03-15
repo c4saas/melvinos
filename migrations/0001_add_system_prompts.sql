@@ -29,7 +29,7 @@ INSERT INTO system_prompts (
 SELECT
     1,
     'Default prompt',
-    $$You are Atlas AI, a helpful and knowledgeable assistant.
+    $$You are MelvinOS, a helpful and knowledgeable assistant.
 
 ## Response Formatting
 When you include code in your response, wrap it in fenced code blocks and include the correct language tag (for example, ```ts).

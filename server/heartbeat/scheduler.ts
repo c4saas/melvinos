@@ -1,11 +1,17 @@
 /**
  * Heartbeat Scheduler
  *
- * Periodic setInterval-based scheduler that runs the heartbeat scan
- * at the configured interval, respects quiet hours, and supports
- * live reconfiguration via reconcile().
+ * Self-rescheduling setTimeout chain (not a fixed setInterval).
+ * After each tick, the agent's NEXT TICK directive is parsed from the response
+ * and used to determine when the next tick fires. Falls back to the configured
+ * interval if no directive is found.
  *
- * Follows the same module-state pattern as telegram-bot.ts.
+ * Key behaviors:
+ * - NEXT TICK: < 2 minutes → treated as work continuation, bypasses quiet hours
+ * - NEXT TICK: >= 2 minutes → treated as scheduled scan, respects quiet hours
+ * - No directive → uses configured intervalMinutes as fallback
+ * - Overlapping runs are prevented (if a run is still active, the next tick
+ *   is rescheduled after it completes)
  */
 import type { IStorage } from '../storage';
 import { runHeartbeatCycle } from './prompt-builder';
@@ -13,12 +19,15 @@ import type { HeartbeatSettings } from '@shared/schema';
 
 // ── Module state ─────────────────────────────────────────────────────────────
 
-let timer: ReturnType<typeof setInterval> | null = null;
+let timer: ReturnType<typeof setTimeout> | null = null;
 let currentRun: Promise<void> | null = null;
 let lastRunAt: string | null = null;
 let nextRunAt: string | null = null;
-let currentIntervalMs: number | null = null;
+let currentIntervalMs: number | null = null;  // configured default
 let schedulerStorage: IStorage | null = null;
+
+/** Set by current tick, consumed by next tick — lets continuation runs bypass quiet hours */
+let bypassNextQuietHours = false;
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -27,14 +36,20 @@ export function getHeartbeatStatus() {
     lastRunAt,
     nextRunAt,
     intervalMs: currentIntervalMs,
-    running: timer !== null,
+    running: timer !== null || currentRun !== null,
   };
+}
+
+export async function stopHeartbeatScheduler(): Promise<void> {
+  clearTimer();
+  if (currentRun) {
+    try { await currentRun; } catch { /* ignore */ }
+  }
 }
 
 export function startHeartbeatScheduler(storage: IStorage) {
   schedulerStorage = storage;
 
-  // Read settings and start polling
   void (async () => {
     try {
       const settings = await storage.getPlatformSettings();
@@ -45,10 +60,11 @@ export function startHeartbeatScheduler(storage: IStorage) {
       }
 
       const intervalMs = hb.intervalMinutes * 60 * 1000;
-      scheduleTimer(storage, intervalMs);
+      currentIntervalMs = intervalMs;
+      scheduleNextTick(storage, intervalMs);
       console.log(`[heartbeat] Scheduler started — interval ${hb.intervalMinutes}m`);
     } catch (err) {
-      console.warn('[heartbeat] Failed to read initial settings:', err);
+      console.error('[heartbeat] STARTUP FAILED — heartbeat will not run:', err instanceof Error ? err.message : err);
     }
   })();
 
@@ -64,7 +80,7 @@ export function startHeartbeatScheduler(storage: IStorage) {
 
 /**
  * Called when platform settings are saved to reconcile the scheduler.
- * Stops existing timer and restarts with new interval (or stops entirely).
+ * Resets to the new configured interval (clears any agent-directed interval).
  */
 export async function reconcileHeartbeatScheduler(storage: IStorage) {
   schedulerStorage = storage;
@@ -80,7 +96,9 @@ export async function reconcileHeartbeatScheduler(storage: IStorage) {
     }
 
     const intervalMs = hb.intervalMinutes * 60 * 1000;
-    scheduleTimer(storage, intervalMs);
+    currentIntervalMs = intervalMs;
+    bypassNextQuietHours = false;
+    scheduleNextTick(storage, intervalMs);
     console.log(`[heartbeat] Scheduler reconciled — interval ${hb.intervalMinutes}m`);
   } catch (err) {
     console.warn('[heartbeat] Reconcile failed:', err);
@@ -89,6 +107,7 @@ export async function reconcileHeartbeatScheduler(storage: IStorage) {
 
 /**
  * Run a single heartbeat tick. Exposed for manual trigger endpoint.
+ * Does not participate in the self-scheduling chain.
  */
 export async function runHeartbeatTick(storage: IStorage): Promise<string> {
   const settings = await storage.getPlatformSettings();
@@ -98,7 +117,6 @@ export async function runHeartbeatTick(storage: IStorage): Promise<string> {
     return 'Heartbeat not configured.';
   }
 
-  // Check quiet hours (skip for manual triggers — only auto runs respect quiet hours)
   const enabledItems = hb.scanItems.filter((item) => item.enabled);
   if (enabledItems.length === 0) {
     return 'No scan items enabled.';
@@ -113,29 +131,34 @@ export async function runHeartbeatTick(storage: IStorage): Promise<string> {
 
 function clearTimer() {
   if (timer) {
-    clearInterval(timer);
+    clearTimeout(timer);
     timer = null;
   }
-  currentIntervalMs = null;
   nextRunAt = null;
 }
 
-function scheduleTimer(storage: IStorage, intervalMs: number) {
+function scheduleNextTick(storage: IStorage, delayMs: number) {
   clearTimer();
-  currentIntervalMs = intervalMs;
-  updateNextRunAt(intervalMs);
-
-  timer = setInterval(() => {
+  nextRunAt = new Date(Date.now() + delayMs).toISOString();
+  timer = setTimeout(() => {
     void runScheduledTick(storage);
-  }, intervalMs);
-}
-
-function updateNextRunAt(intervalMs: number) {
-  nextRunAt = new Date(Date.now() + intervalMs).toISOString();
+  }, delayMs);
 }
 
 async function runScheduledTick(storage: IStorage) {
-  if (currentRun) return; // previous run still in progress
+  // If a run is still in progress, reschedule and wait for it to finish
+  if (currentRun) {
+    const fallback = currentIntervalMs ?? 30 * 60 * 1000;
+    scheduleNextTick(storage, fallback);
+    return;
+  }
+
+  // Capture and reset the bypass flag set by the previous tick
+  const bypassQuietHours = bypassNextQuietHours;
+  bypassNextQuietHours = false;
+
+  // Default to configured interval; will be overridden if agent provides NEXT TICK directive
+  let nextIntervalMs = currentIntervalMs ?? 30 * 60 * 1000;
 
   currentRun = (async () => {
     try {
@@ -145,8 +168,12 @@ async function runScheduledTick(storage: IStorage) {
 
       if (!hb?.enabled) return;
 
-      // Check quiet hours for automated runs
-      if (isInQuietHours(hb.quietHours)) {
+      // Update the stored default interval in case admin changed it
+      currentIntervalMs = hb.intervalMinutes * 60 * 1000;
+      nextIntervalMs = currentIntervalMs;
+
+      // Respect quiet hours — but skip if this is a work-continuation tick
+      if (!bypassQuietHours && isInQuietHours(hb.quietHours)) {
         console.log('[heartbeat] Skipped — quiet hours');
         return;
       }
@@ -155,8 +182,23 @@ async function runScheduledTick(storage: IStorage) {
       if (enabledItems.length === 0) return;
 
       console.log('[heartbeat] Running scheduled scan...');
-      await runHeartbeatCycle(storage, hb);
+      const response = await runHeartbeatCycle(storage, hb);
       lastRunAt = new Date().toISOString();
+
+      // Parse NEXT TICK directive from agent response
+      const directive = parseNextTickMs(response);
+      if (directive !== null) {
+        nextIntervalMs = directive;
+        const isContinuation = directive < 2 * 60 * 1000; // < 2 min = work continuation
+        bypassNextQuietHours = isContinuation;
+        console.log(
+          `[heartbeat] Agent-directed next tick in ${formatDuration(directive)}` +
+          (isContinuation ? ' (work continuation — quiet hours bypassed)' : '')
+        );
+      } else {
+        console.log(`[heartbeat] No NEXT TICK directive found — using configured interval (${formatDuration(nextIntervalMs)})`);
+      }
+
       console.log('[heartbeat] Scheduled scan completed');
     } catch (err) {
       console.error('[heartbeat] Scheduled run error:', err instanceof Error ? err.message : err);
@@ -167,17 +209,40 @@ async function runScheduledTick(storage: IStorage) {
     await currentRun;
   } finally {
     currentRun = null;
-    if (currentIntervalMs) {
-      updateNextRunAt(currentIntervalMs);
-    }
+    // Schedule next tick with the interval determined during this run
+    scheduleNextTick(storage, nextIntervalMs);
   }
+}
+
+/**
+ * Parse "NEXT TICK: N minutes/hours/seconds" from the agent's response.
+ * Returns milliseconds, or null if not found.
+ */
+function parseNextTickMs(response: string): number | null {
+  const match = response.match(
+    /NEXT TICK:\s*(\d+(?:\.\d+)?)\s*(minute|min|hour|hr|second|sec)s?/i
+  );
+  if (!match) return null;
+
+  const value = parseFloat(match[1]);
+  if (!isFinite(value) || value <= 0) return null;
+
+  const unit = match[2].toLowerCase();
+  if (unit.startsWith('hour') || unit.startsWith('hr')) return Math.round(value * 60 * 60 * 1000);
+  if (unit.startsWith('second') || unit.startsWith('sec')) return Math.round(value * 1000);
+  return Math.round(value * 60 * 1000); // minutes (default)
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
+  if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
+  return `${(ms / 3_600_000).toFixed(1)}h`;
 }
 
 function isInQuietHours(quietHours: HeartbeatSettings['quietHours']): boolean {
   if (!quietHours.enabled) return false;
 
   try {
-    // Get current time in the configured timezone
     const now = new Date();
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: quietHours.timezone,
@@ -193,8 +258,6 @@ function isInQuietHours(quietHours: HeartbeatSettings['quietHours']): boolean {
     if (!hourPart || !minutePart) return false;
 
     const currentMinutes = parseInt(hourPart.value, 10) * 60 + parseInt(minutePart.value, 10);
-
-    // Parse start/end times
     const [startH, startM] = quietHours.startTime.split(':').map(Number);
     const [endH, endM] = quietHours.endTime.split(':').map(Number);
     const startMinutes = startH * 60 + startM;
@@ -202,14 +265,11 @@ function isInQuietHours(quietHours: HeartbeatSettings['quietHours']): boolean {
 
     // Handle overnight ranges (e.g., 23:00 - 08:00)
     if (startMinutes <= endMinutes) {
-      // Same-day range (e.g., 09:00 - 17:00)
       return currentMinutes >= startMinutes && currentMinutes < endMinutes;
     } else {
-      // Overnight range (e.g., 23:00 - 08:00)
       return currentMinutes >= startMinutes || currentMinutes < endMinutes;
     }
   } catch {
-    // If timezone parsing fails, don't suppress the scan
     return false;
   }
 }

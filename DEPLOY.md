@@ -1,6 +1,6 @@
-# Atlas AI — VPS Deployment Guide
+# MelvinOS AI — VPS Deployment Guide
 
-Deploy Atlas on any VPS (Hostinger, DigitalOcean, Linode, Hetzner, etc.) running Ubuntu 22.04 or 24.04.
+Deploy MelvinOS on any VPS (Hostinger, DigitalOcean, Linode, Hetzner, etc.) running Ubuntu 22.04 or 24.04.
 
 ---
 
@@ -8,8 +8,8 @@ Deploy Atlas on any VPS (Hostinger, DigitalOcean, Linode, Hetzner, etc.) running
 
 ```bash
 # On your VPS, as root or with sudo:
-export REPO_URL=https://github.com/your-username/atlas.git
-bash <(curl -fsSL https://raw.githubusercontent.com/your-username/atlas/main/deploy.sh)
+export REPO_URL=https://github.com/your-username/melvinos.git
+bash <(curl -fsSL https://raw.githubusercontent.com/your-username/melvinos/main/deploy.sh)
 ```
 
 The script handles Docker installation, cloning, secret generation, and service startup automatically. For a first-time manual walkthrough, follow the steps below.
@@ -39,8 +39,8 @@ docker compose version
 ### 2. Get the code
 
 ```bash
-git clone https://github.com/your-username/atlas.git /opt/atlas
-cd /opt/atlas
+git clone https://github.com/your-username/melvinos.git /opt/melvinos
+cd /opt/melvinos
 ```
 
 ---
@@ -63,7 +63,7 @@ Edit `.env` and fill in **at minimum** the following:
 **Important:** `DATABASE_URL` must use `postgres` (the Docker service name) as the host:
 
 ```
-DATABASE_URL=postgres://atlas:YOUR_POSTGRES_PASSWORD@postgres:5432/atlasai
+DATABASE_URL=postgres://melvinos:YOUR_POSTGRES_PASSWORD@postgres:5432/melvinos
 ```
 
 Add AI provider keys as needed:
@@ -79,21 +79,21 @@ GROQ_API_KEY=gsk_...
 ### 4. Build and start
 
 ```bash
-cd /opt/atlas
+cd /opt/melvinos
 
-# Build the Atlas image and start all services
+# Build the MelvinOS image and start all services
 docker compose up -d --build
 
 # Tail logs
 docker compose logs -f
 ```
 
-On first start Atlas automatically runs database migrations (`drizzle-kit push` equivalent via the startup script). You'll see log lines like:
+On first start MelvinOS automatically runs database migrations (`drizzle-kit push` equivalent via the startup script). You'll see log lines like:
 
 ```
-atlas  | [db] Running migrations…
-atlas  | [db] Migrations complete.
-atlas  | [server] Listening on port 3001
+melvinos  | [db] Running migrations…
+melvinos  | [db] Migrations complete.
+melvinos  | [server] Listening on port 3001
 ```
 
 ---
@@ -101,9 +101,9 @@ atlas  | [server] Listening on port 3001
 ### 5. Create the super-admin account
 
 ```bash
-docker compose exec atlas node dist/scripts/seed-super-admin.js
+docker compose exec melvinos node dist/scripts/seed-super-admin.js
 # or via npm script:
-docker compose exec atlas npm run seed:super-admin
+docker compose exec melvinos npm run seed:super-admin
 ```
 
 Follow the prompts to set the admin email and password.
@@ -112,13 +112,13 @@ Follow the prompts to set the admin email and password.
 
 ### 6. nginx reverse proxy (recommended)
 
-Install nginx on the host and proxy traffic to the Atlas container.
+Install nginx on the host and proxy traffic to the MelvinOS container.
 
 ```bash
 sudo apt install -y nginx
 ```
 
-Create `/etc/nginx/sites-available/atlas`:
+Create `/etc/nginx/sites-available/melvinos`:
 
 ```nginx
 server {
@@ -150,7 +150,7 @@ server {
 Enable the site:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/atlas /etc/nginx/sites-enabled/atlas
+sudo ln -s /etc/nginx/sites-available/melvinos /etc/nginx/sites-enabled/melvinos
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -176,10 +176,10 @@ sudo systemctl enable docker
 
 ---
 
-## Updating Atlas
+## Updating MelvinOS
 
 ```bash
-cd /opt/atlas
+cd /opt/melvinos
 git pull origin main
 docker compose up -d --build
 ```
@@ -192,13 +192,13 @@ Database migrations run automatically on startup.
 
 ```bash
 # View live logs
-docker compose logs -f atlas
+docker compose logs -f melvinos
 
 # Open a shell inside the running container
-docker compose exec atlas sh
+docker compose exec melvinos sh
 
 # Restart just the app (not the database)
-docker compose restart atlas
+docker compose restart melvinos
 
 # Stop everything
 docker compose down
@@ -224,7 +224,7 @@ Then `docker compose up -d`.
 ### Database connection refused
 Make sure `DATABASE_URL` uses `postgres` (the service name), not `localhost`:
 ```env
-DATABASE_URL=postgres://atlas:YOUR_PW@postgres:5432/atlasai
+DATABASE_URL=postgres://melvinos:YOUR_PW@postgres:5432/melvinos
 ```
 
 ### Build fails on `sharp` / native addons
@@ -232,7 +232,7 @@ The Dockerfile installs `python3`, `make`, and `g++` in the builder stage and re
 
 ### Migrations fail / tables missing
 ```bash
-docker compose exec atlas npm run db:push
+docker compose exec melvinos npm run db:push
 ```
 
 ---
@@ -247,5 +247,5 @@ docker compose exec atlas npm run db:push
 ```
 
 Persistent data lives in Docker named volumes:
-- `atlas_postgres_data` — PostgreSQL data directory
-- `atlas_uploads` — user uploaded files
+- `melvinos_postgres_data` — PostgreSQL data directory
+- `melvinos_uploads` — user uploaded files

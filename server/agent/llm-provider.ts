@@ -118,6 +118,7 @@ function createOpenAIProvider(storage: IStorage): LLMProvider {
         temperature,
         tools: modelSupportsFunctions(config.model) && tools.length > 0 ? tools : undefined,
         stream: false,
+        ...(isOllama && modelConfig.contextLength ? { options: { num_ctx: modelConfig.contextLength } } : {}),
       };
       if (!isOllama) applyOpenAIModelParams(params, modelConfig, config);
 
@@ -174,6 +175,7 @@ function createOpenAIProvider(storage: IStorage): LLMProvider {
         temperature,
         stream: true,
         ...(isOllama ? {} : { stream_options: { include_usage: true } }),
+        ...(isOllama && modelConfig.contextLength ? { options: { num_ctx: modelConfig.contextLength } } : {}),
       };
       if (!isOllama) applyOpenAIModelParams(params, modelConfig, config);
 

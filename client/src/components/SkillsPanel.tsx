@@ -234,14 +234,18 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
                           return (
                             <div
                               key={skill.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => !isSaving && handleSkillToggle(skill.id, !skill.enabled)}
+                              onKeyDown={(e) => e.key === 'Enter' && !isSaving && handleSkillToggle(skill.id, !skill.enabled)}
                               className={cn(
-                                'flex items-center justify-between gap-3 rounded-lg px-3 py-2 border transition-colors',
+                                'flex items-center justify-between gap-3 rounded-lg px-3 py-2 border transition-colors cursor-pointer select-none',
                                 skill.enabled
                                   ? 'bg-card border-border/50'
                                   : 'bg-muted/20 border-border/30 opacity-60',
                               )}
                             >
-                              <div className="min-w-0 flex-1">
+                              <div className="min-w-0 flex-1 pointer-events-none">
                                 <p className="text-xs font-medium truncate">{skill.name}</p>
                                 {skill.description && (
                                   <p className="text-[11px] text-muted-foreground truncate leading-snug">
@@ -260,6 +264,7 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
                                 <Switch
                                   checked={skill.enabled}
                                   onCheckedChange={(checked) => handleSkillToggle(skill.id, checked)}
+                                  onClick={(e) => e.stopPropagation()}
                                   className="flex-shrink-0 scale-90"
                                 />
                               )}
@@ -314,14 +319,18 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
                     return (
                       <div
                         key={tool.name}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => !isSaving && handleToolToggle(tool.name, !isEnabled)}
+                        onKeyDown={(e) => e.key === 'Enter' && !isSaving && handleToolToggle(tool.name, !isEnabled)}
                         className={cn(
-                          'flex items-center justify-between gap-3 rounded-lg px-3 py-2 border transition-colors',
+                          'flex items-center justify-between gap-3 rounded-lg px-3 py-2 border transition-colors cursor-pointer select-none',
                           isEnabled
                             ? 'bg-card border-border/50'
                             : 'bg-muted/20 border-border/30 opacity-60',
                         )}
                       >
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1 pointer-events-none">
                           <p className="text-xs font-medium truncate">
                             {tool.name.startsWith('mcp_')
                               ? (() => {
@@ -342,6 +351,7 @@ export function SkillsPanel({ open, onClose }: SkillsPanelProps) {
                           <Switch
                             checked={isEnabled}
                             onCheckedChange={(checked) => handleToolToggle(tool.name, checked)}
+                            onClick={(e) => e.stopPropagation()}
                             className="flex-shrink-0 scale-90"
                           />
                         )}

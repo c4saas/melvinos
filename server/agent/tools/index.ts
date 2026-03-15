@@ -26,6 +26,7 @@ import { claudeCodeTool } from './claude-code';
 import { gammaCreateTool } from './gamma-create';
 import { scheduleTaskTool, listScheduledTasksTool, deleteScheduledTaskTool } from './cron-tools';
 import { sshExecuteTool } from './ssh-execute';
+import { listOutputTemplatesTool, setOutputTemplateStorage } from './list-output-templates';
 import type { IStorage } from '../../storage';
 
 let initialized = false;
@@ -36,6 +37,7 @@ export function registerAllTools(storage: IStorage): void {
 
   setMemoryStorage(storage);
   setSkillStorage(storage);
+  setOutputTemplateStorage(storage);
 
   toolRegistry.register(webSearchTool);
   toolRegistry.register(pythonExecuteTool);
@@ -77,6 +79,7 @@ export function registerAllTools(storage: IStorage): void {
   toolRegistry.register(deleteScheduledTaskTool);
   toolRegistry.register(sshExecuteTool);
   toolRegistry.register(skillUpdateTool);
+  toolRegistry.register(listOutputTemplatesTool);
 }
 
 export { toolRegistry };

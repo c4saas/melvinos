@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-#  Atlas — Docker Compose
+#  MelvinOS — Docker Compose
 #  Services: app + postgres + claude-code
 #
 #  Usage:
@@ -14,29 +14,29 @@ services:
   # ── PostgreSQL ──────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: ${COMPOSE_PROJECT_NAME:-atlas}_postgres
+    container_name: ${COMPOSE_PROJECT_NAME:-melvinos}_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: atlasai
-      POSTGRES_USER: atlas
+      POSTGRES_DB: melvinos
+      POSTGRES_USER: melvinos
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - atlas_net
+      - melvinos_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U atlas -d atlasai"]
+      test: ["CMD-SHELL", "pg_isready -U melvinos -d melvinos"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
-  # ── Atlas App ───────────────────────────────────────────────
-  atlas:
+  # ── MelvinOS App ─────────────────────────────────────────────
+  melvinos:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ${COMPOSE_PROJECT_NAME:-atlas}_app
+    container_name: ${COMPOSE_PROJECT_NAME:-melvinos}_app
     restart: unless-stopped
     depends_on:
       postgres:
@@ -47,16 +47,16 @@ services:
       NODE_ENV: production
       PORT: 3001
       AGENT_WORKSPACE_PATH: /app/workspace
-      DATABASE_URL: postgres://atlas:${POSTGRES_PASSWORD:-changeme_in_production}@postgres:5432/atlasai
+      DATABASE_URL: postgres://melvinos:${POSTGRES_PASSWORD:-changeme_in_production}@postgres:5432/melvinos
       QDRANT_URL: ${QDRANT_URL:-http://localhost:6333}
     ports:
       - "${HOST_PORT:-3001}:3001"
     volumes:
-      - atlas_uploads:/app/uploads
+      - uploads:/app/uploads
       - agent_workspace:/app/workspace
       - claude_ssh:/var/ssh-keys-src:ro
     networks:
-      - atlas_net
+      - melvinos_net
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3001/api/auth/csrf-token').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))\""]
       interval: 30s
@@ -69,7 +69,7 @@ services:
     build:
       context: ./claude-code
       dockerfile: Dockerfile
-    container_name: ${COMPOSE_PROJECT_NAME:-atlas}_claude
+    container_name: ${COMPOSE_PROJECT_NAME:-melvinos}_claude
     restart: unless-stopped
     environment:
       ANTHROPIC_API_KEY: ""
@@ -80,20 +80,25 @@ services:
       - agent_workspace:/workspace
       - claude_ssh:/root/.ssh
     networks:
-      - atlas_net
+      - melvinos_net
 
 volumes:
   postgres_data:
-    driver: local
-  atlas_uploads:
-    driver: local
+    external: true
+    name: melvinos_postgres_data
+  uploads:
+    external: true
+    name: melvinos_uploads
   agent_workspace:
-    driver: local
+    external: true
+    name: melvinos_agent_workspace
   claude_auth:
-    driver: local
+    external: true
+    name: melvinos_claude_auth
   claude_ssh:
-    driver: local
+    external: true
+    name: melvinos_claude_ssh
 
 networks:
-  atlas_net:
+  melvinos_net:
     driver: bridge

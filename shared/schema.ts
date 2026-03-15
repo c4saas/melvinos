@@ -771,7 +771,7 @@ export const defaultPlatformSettings: z.infer<typeof platformSettingsDataSchema>
     pro: {
       messageLimitPerDay: null,
       allowedModels: [
-        'gpt-5.2',
+        'gpt-5.4',
         'claude-sonnet-4-6',
         'compound',
         'sonar-pro',
@@ -784,7 +784,7 @@ export const defaultPlatformSettings: z.infer<typeof platformSettingsDataSchema>
     enterprise: {
       messageLimitPerDay: null,
       allowedModels: [
-        'gpt-5.2',
+        'gpt-5.4',
         'claude-sonnet-4-6',
         'claude-opus-4-6',
         'compound',
@@ -823,7 +823,7 @@ export const defaultPlatformSettings: z.infer<typeof platformSettingsDataSchema>
     openai: {
       enabled: true,
       defaultApiKey: null,
-      allowedModels: ['gpt-5.2'],
+      allowedModels: ['gpt-5.4'],
       dailyRequestLimit: null,
     },
     anthropic: {
@@ -860,6 +860,12 @@ export const defaultPlatformSettings: z.infer<typeof platformSettingsDataSchema>
       enabled: true,
       defaultApiKey: null,
       allowedModels: ['gemini-3.1-pro', 'gemini-2.5-flash'],
+      dailyRequestLimit: null,
+    },
+    ollama: {
+      enabled: true,
+      defaultApiKey: null,
+      allowedModels: ['qwen3.5-397b'],
       dailyRequestLimit: null,
     },
   },
@@ -1035,7 +1041,7 @@ export const defaultPlatformSettings: z.infer<typeof platformSettingsDataSchema>
   modelConfig: {
     'claude-opus-4-6': { reasoningLevel: 'high', maxOutputTokens: null },
     'claude-sonnet-4-6': { reasoningLevel: 'medium', maxOutputTokens: null },
-    'gpt-5.2': { reasoningLevel: 'medium', maxOutputTokens: null },
+    'gpt-5.4': { reasoningLevel: 'medium', maxOutputTokens: null },
     'gemini-3.1-pro': { reasoningLevel: 'medium', maxOutputTokens: null },
     'sonar-deep-research': { reasoningLevel: 'medium', maxOutputTokens: null },
     'compound': { reasoningLevel: 'off', maxOutputTokens: null },
@@ -1603,8 +1609,8 @@ export interface AIModel {
 export const AI_MODELS: AIModel[] = [
   // OpenAI Models
   {
-    id: 'gpt-5.2',
-    name: 'GPT-5.2',
+    id: 'gpt-5.4',
+    name: 'GPT-5.4',
     description: 'Latest OpenAI flagship with enhanced reasoning and instruction-following',
     provider: 'OpenAI',
     capabilities: ['chat', 'vision', 'search', 'thinking', 'code', 'tools'],
@@ -1633,7 +1639,7 @@ export const AI_MODELS: AIModel[] = [
   {
     id: 'compound',
     name: 'Titan-V',
-    description: "Melvin's flagship model that blends fast inference with autonomous research, web tools, and code execution.",
+    description: "MelvinOS flagship model that blends fast inference with autonomous research, web tools, and code execution.",
     provider: 'Groq',
     capabilities: ['chat', 'search', 'code'],
     maxTokens: 32768,

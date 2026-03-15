@@ -38,7 +38,7 @@ fi
 
 echo "Claude Code relay starting..."
 echo "  SSH:   port 22  (first-time auth: ssh claude@<host> -p 2222)"
-echo "  HTTP:  port 3333 (Atlas tool relay)"
+echo "  HTTP:  port 3333 (MelvinOS tool relay)"
 
 # Run relay as claude user (so it can access ~/.claude/ credentials)
 exec su -s /bin/bash claude -c "node /home/claude/relay.js"

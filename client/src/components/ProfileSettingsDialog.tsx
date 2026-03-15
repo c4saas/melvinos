@@ -101,6 +101,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 function AgentMemoriesSection() {
   const { toast } = useToast();
+  const { agentName } = useBranding();
   const [newMemory, setNewMemory] = useState('');
 
   const { data, isLoading, refetch } = useQuery<{ memories: AgentMemory[] }>({

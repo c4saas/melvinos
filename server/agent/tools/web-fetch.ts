@@ -71,7 +71,7 @@ export const webFetchTool: ToolDefinition = {
       const response = await fetch(url, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Atlas-Agent/1.0',
+          'User-Agent': 'MelvinOS-Agent/1.0',
           'Accept': 'text/html,application/json,text/plain,*/*',
         },
       });

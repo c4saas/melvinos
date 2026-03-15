@@ -268,7 +268,7 @@ export default function SkillsPage() {
                   <p className="text-sm font-medium">{displayName}</p>
                   <p className="text-xs text-muted-foreground truncate">{tool.description?.replace(/^\[.*?\]\s*/, '') ?? ''}</p>
                 </div>
-                <Switch checked={isEnabled} onCheckedChange={(checked) => handleToolToggle(tool.name, checked)} />
+                <Switch checked={isEnabled} onCheckedChange={(checked) => handleToolToggle(tool.name, checked)} className="flex-shrink-0" />
               </div>
             );
           };
@@ -289,8 +289,10 @@ export default function SkillsPage() {
                   {isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground ml-1" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-1" />}
                 </button>
                 {isExpanded && (
-                  <div className="p-3 grid gap-2 sm:grid-cols-2">
-                    {tools.map(renderToolItem)}
+                  <div className="overflow-x-auto">
+                    <div className="p-3 grid gap-2 sm:grid-cols-2 min-w-[480px] sm:min-w-0">
+                      {tools.map(renderToolItem)}
+                    </div>
                   </div>
                 )}
               </div>

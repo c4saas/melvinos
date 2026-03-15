@@ -3,6 +3,7 @@
 
 import { getModelConfig } from '../../ai-models';
 import type { ToolContext } from '../tool-registry';
+import { resolveProviderKey } from './resolve-provider-key';
 
 // Anthropic web search tool version — update when Anthropic releases a new version
 // Latest: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/web-search-tool
@@ -23,7 +24,7 @@ export interface NativeSearchResult {
 
 /** Models that support native web search through their provider API */
 const NATIVE_SEARCH_MODELS: Record<string, string> = {
-  'gpt-5.2': 'openai',
+  'gpt-5.4': 'openai',
   'claude-sonnet-4-6': 'anthropic',
   'claude-opus-4-6': 'anthropic',
   'gemini-3.1-pro': 'google',
@@ -35,19 +36,6 @@ export function hasNativeSearch(model: string): boolean {
   return model in NATIVE_SEARCH_MODELS;
 }
 
-function resolveApiKey(context: ToolContext, provider: string): string | undefined {
-  const settings = context.platformSettings as any;
-  const providerKey = settings?.apiProviders?.[provider]?.defaultApiKey;
-  if (providerKey) return providerKey;
-
-  const envKeys: Record<string, string | undefined> = {
-    openai: process.env.OPENAI_API_KEY,
-    anthropic: process.env.ANTHROPIC_API_KEY,
-    groq: process.env.GROQ_API_KEY,
-    google: process.env.GOOGLE_API_KEY,
-  };
-  return envKeys[provider];
-}
 
 // ─── OpenAI Native Search (GPT-5.2) ────────────────────────────────────────
 
@@ -59,7 +47,7 @@ async function searchWithOpenAI(query: string, apiKey: string): Promise<NativeSe
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-5.2',
+      model: 'gpt-5.4',
       tools: [{ type: 'web_search_preview' }],
       input: query,
     }),
@@ -95,7 +83,7 @@ async function searchWithOpenAI(query: string, apiKey: string): Promise<NativeSe
     answer,
     sources: [...new Set(sources)], // deduplicate
     usage: data.usage ? {
-      model: 'gpt-5.2',
+      model: 'gpt-5.4',
       promptTokens: data.usage.input_tokens ?? 0,
       completionTokens: data.usage.output_tokens ?? 0,
       totalTokens: (data.usage.input_tokens ?? 0) + (data.usage.output_tokens ?? 0),
@@ -266,7 +254,7 @@ export async function performNativeSearch(
     throw new Error(`No native search available for model: ${model}`);
   }
 
-  const apiKey = resolveApiKey(context, provider);
+  const apiKey = resolveProviderKey(context, provider);
   if (!apiKey) {
     throw new Error(`No API key available for ${provider} native search`);
   }

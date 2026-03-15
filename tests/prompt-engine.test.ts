@@ -16,7 +16,7 @@ test('assembleRequest falls back to the default system prompt', async () => {
 test('assembleRequest uses the active prompt and appends additional instructions', async () => {
   const storage = new MemStorage();
   const prompt = await storage.createSystemPrompt({
-    content: 'Custom Atlas instructions.',
+    content: 'Custom MelvinOS instructions.',
     label: 'v2',
     createdByUserId: 'admin-1',
     activate: false,
@@ -44,7 +44,7 @@ test('assembleRequest uses the active prompt and appends additional instructions
   });
 
   assert.equal(result[0]?.role, 'system');
-  assert.ok(result[0]?.content.startsWith('Custom Atlas instructions.'));
+  assert.ok(result[0]?.content.startsWith('Custom MelvinOS instructions.'));
   assert.ok(result[0]?.content.includes('Always respond cheerfully.'));
   assert.equal(result[1]?.role, 'user');
 });

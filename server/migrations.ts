@@ -7,7 +7,7 @@ import { db, pool } from "./db";
 import { log } from "./vite";
 
 const MIGRATIONS_SCOPE = "migrations";
-const FALLBACK_MIGRATIONS_TABLE = "atlas_migrations";
+const FALLBACK_MIGRATIONS_TABLE = "melvinos_migrations";
 
 let migrationsPromise: Promise<void> | null = null;
 

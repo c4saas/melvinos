@@ -9,7 +9,7 @@ interface TaskQueueOptions {
 }
 
 const DEFAULT_POLL_INTERVAL = 5000;
-const DEFAULT_MAX_CONCURRENT = 2;
+const DEFAULT_MAX_CONCURRENT = 5;
 
 let storageRef: IStorage | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;

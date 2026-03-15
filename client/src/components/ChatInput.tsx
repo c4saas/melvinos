@@ -16,7 +16,7 @@ import { ensureCsrfToken, getCsrfToken } from '@/lib/csrf';
 import { type AssistantSummary, type AssistantType, formatFileUploadLimitLabel } from '@shared/schema';
 import type { AssistantSelection } from '@/types/assistants';
 import { useToast } from '@/hooks/use-toast';
-import { AtlasVoiceIcon } from './icons/AtlasVoiceIcon';
+import { MelvinOSVoiceIcon } from './icons/MelvinOSVoiceIcon';
 import { useBranding } from '@/hooks/useBranding';
 
 // Slash command definitions
@@ -1312,7 +1312,7 @@ export function ChatInput({
               aria-pressed={isRecording}
               aria-label={isRecording ? 'Stop voice recording' : 'Start voice recording (hold for conversation mode)'}
             >
-              <AtlasVoiceIcon className="h-5 w-5" />
+              <MelvinOSVoiceIcon className="h-5 w-5" />
             </Button>
           ) : (
             <TooltipProvider delayDuration={150}>
@@ -1337,7 +1337,7 @@ export function ChatInput({
                       aria-pressed={isRecording}
                       aria-label="Voice input unavailable"
                     >
-                      <AtlasVoiceIcon className="h-5 w-5" />
+                      <MelvinOSVoiceIcon className="h-5 w-5" />
                     </Button>
                   </span>
                 </TooltipTrigger>

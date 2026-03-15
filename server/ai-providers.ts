@@ -376,6 +376,56 @@ export async function callPerplexity(request: ChatCompletionRequest): Promise<Ch
   }
 }
 
+// Ollama provider — uses OpenAI-compatible endpoint
+export async function callOllama(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+  try {
+    const modelConfig = getModelConfig(request.model);
+    if (!modelConfig || modelConfig.provider !== 'ollama') {
+      throw new Error(`Unsupported Ollama model: ${request.model}`);
+    }
+
+    const endpoint = modelConfig.endpoint ?? 'https://ollama.com/v1';
+    const cleanMessages = request.messages.map(m => ({ role: m.role, content: m.content }));
+    const modelTemperature = getModelTemperature(request.model);
+
+    const response = await fetch(`${endpoint}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OLLAMA_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelConfig.apiModel,
+        messages: cleanMessages,
+        max_tokens: request.maxTokens || 4000,
+        temperature: request.temperature ?? modelTemperature,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Ollama API ${response.status} error response:`, errorText);
+      throw new Error(`Ollama API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      content: data.choices[0]?.message?.content || '',
+      model: request.model,
+      usage: {
+        promptTokens: data.usage?.prompt_tokens,
+        completionTokens: data.usage?.completion_tokens,
+        totalTokens: data.usage?.total_tokens,
+      },
+    };
+  } catch (error) {
+    console.error('Ollama API error:', error);
+    throw new Error(`Ollama API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 // Google (Gemini) provider — uses OpenAI-compatible endpoint
 export async function callGoogle(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
   try {
@@ -499,6 +549,11 @@ export async function callAIProvider(request: ChatCompletionRequest): Promise<Ch
         throw new Error('Google API key is required but not configured');
       }
       return callGoogle(validatedRequest);
+    case 'Ollama':
+      if (!process.env.OLLAMA_API_KEY) {
+        throw new Error('Ollama API key is required but not configured');
+      }
+      return callOllama(validatedRequest);
     default:
       throw new Error(`Unsupported provider: ${model.provider}`);
   }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import type { InsertUserPreferences } from '@shared/schema';
 
-process.env.DATABASE_URL ??= 'postgres://user:pass@localhost:5432/atlas';
+process.env.DATABASE_URL ??= 'postgres://user:pass@localhost:5432/melvinos';
 
 const storageModulePromise = import('../server/storage');
 

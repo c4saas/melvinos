@@ -427,7 +427,7 @@ export default function SSHServersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove SSH server?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the server and its private key from Atlas. {agentName} will no longer be able to connect to it.
+              This will remove the server and its private key from MelvinOS. {agentName} will no longer be able to connect to it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

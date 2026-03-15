@@ -8,6 +8,7 @@ export interface ModelConfig {
   apiKeyEnvVar: string;
   endpoint?: string; // Optional custom endpoint
   maxTokens?: number;
+  contextLength?: number; // Ollama: passed as num_ctx to override 4096 default
   supportsFunctions?: boolean;
   supportsVision?: boolean;
   supportsStreaming?: boolean;
@@ -25,7 +26,7 @@ export function getModelTemperature(modelId: string): number {
     return STANDARD_TEMPERATURE;
   }
 
-  if (modelId === 'gpt-5.2') {
+  if (modelId === 'gpt-5.4') {
     return 1.0;
   }
 
@@ -42,9 +43,9 @@ export function getModelTemperature(modelId: string): number {
 
 export const MODEL_CONFIG: Record<string, ModelConfig> = {
   // OpenAI Models
-  'gpt-5.2': {
-    id: 'gpt-5.2',
-    apiModel: 'gpt-5.2',
+  'gpt-5.4': {
+    id: 'gpt-5.4',
+    apiModel: 'gpt-5.4',
     provider: 'openai',
     apiKeyEnvVar: 'OPENAI_API_KEY',
     maxTokens: 200000,
@@ -191,6 +192,7 @@ export const MODEL_CONFIG: Record<string, ModelConfig> = {
     apiKeyEnvVar: 'OLLAMA_API_KEY',
     endpoint: 'https://ollama.com/v1',
     maxTokens: 32768,
+    contextLength: 65536,
     supportsFunctions: true,
     supportsVision: true,
     supportsStreaming: true,
@@ -221,7 +223,7 @@ export function getAvailableModels(): string[] {
 }
 
 export function getDefaultModel(): string {
-  if (isModelAvailable('gpt-5.2')) return 'gpt-5.2';
+  if (isModelAvailable('gpt-5.4')) return 'gpt-5.4';
   if (isModelAvailable('compound')) return 'compound';
 
   const available = getAvailableModels();

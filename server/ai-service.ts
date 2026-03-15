@@ -1244,6 +1244,10 @@ sys.stderr = _stderr
           yield* this.streamGoogleCompletion(...streamArgs);
           break;
 
+        case 'ollama':
+          yield* this.streamOpenAICompletion(...streamArgs);
+          break;
+
         default:
           throw new Error(`Streaming not implemented for ${modelConfig.provider}`);
       }
@@ -1260,7 +1264,7 @@ sys.stderr = _stderr
     apiKey: string,
     _toolPolicyMap: Map<string, ToolPolicy>,
   ): AsyncGenerator<StreamDelta> {
-    const openai = new OpenAI({ apiKey });
+    const openai = new OpenAI({ apiKey, ...(config.endpoint ? { baseURL: config.endpoint } : {}) });
 
     const modelTemperature = getModelTemperature(request.model);
 

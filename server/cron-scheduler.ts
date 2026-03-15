@@ -103,12 +103,17 @@ async function fireJob(job: CronJob) {
       await _storage.updateCronJob(job.id, { lastRunAt: new Date(), enabled: false, nextRunAt: null });
     }
 
-    // Enqueue as an agent task so it runs through the normal pipeline
+    // Enqueue via the agent_autonomous handler (has model resolution + full tool context)
     await _storage.createAgentTask({
-      type: 'cron',
+      type: 'agent_autonomous',
       title: `[Cron] ${job.name}`,
       status: 'pending',
-      input: { prompt: job.prompt, cronJobId: job.id },
+      input: {
+        prompt: job.prompt,
+        userId: job.userId,
+        chatId: job.conversationId ?? undefined,
+        cronJobId: job.id,
+      },
       conversationId: job.conversationId ?? null,
     });
 

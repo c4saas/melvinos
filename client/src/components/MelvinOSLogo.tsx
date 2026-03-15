@@ -2,12 +2,12 @@ import type { SVGProps } from 'react';
 
 import { cn } from '@/lib/utils';
 
-interface AtlasLogoProps extends Omit<SVGProps<SVGSVGElement>, 'viewBox'> {
+interface MelvinOSLogoProps extends Omit<SVGProps<SVGSVGElement>, 'viewBox'> {
   className?: string;
   size?: number | string;
 }
 
-export function AtlasLogo({ className, size = 24, ...props }: AtlasLogoProps) {
+export function MelvinOSLogo({ className, size = 24, ...props }: MelvinOSLogoProps) {
   return (
     <svg
       width={size}
@@ -43,4 +43,4 @@ export function AtlasLogo({ className, size = 24, ...props }: AtlasLogoProps) {
   );
 }
 
-export default AtlasLogo;
+export default MelvinOSLogo;

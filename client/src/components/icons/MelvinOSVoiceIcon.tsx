@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-export const AtlasVoiceIcon = React.forwardRef<SVGSVGElement, React.SVGProps<SVGSVGElement>>(
+export const MelvinOSVoiceIcon = React.forwardRef<SVGSVGElement, React.SVGProps<SVGSVGElement>>(
   (props, ref) => (
     <svg
       ref={ref}
@@ -22,6 +22,6 @@ export const AtlasVoiceIcon = React.forwardRef<SVGSVGElement, React.SVGProps<SVG
   )
 );
 
-AtlasVoiceIcon.displayName = 'AtlasVoiceIcon';
+MelvinOSVoiceIcon.displayName = 'MelvinOSVoiceIcon';
 
-export default AtlasVoiceIcon;
+export default MelvinOSVoiceIcon;

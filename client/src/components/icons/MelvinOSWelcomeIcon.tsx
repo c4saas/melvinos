@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-export const AtlasWelcomeIcon = React.forwardRef<
+export const MelvinOSWelcomeIcon = React.forwardRef<
   SVGSVGElement,
   React.SVGProps<SVGSVGElement>
 >((props, ref) => {
@@ -76,6 +76,6 @@ export const AtlasWelcomeIcon = React.forwardRef<
   );
 });
 
-AtlasWelcomeIcon.displayName = 'AtlasWelcomeIcon';
+MelvinOSWelcomeIcon.displayName = 'MelvinOSWelcomeIcon';
 
-export default AtlasWelcomeIcon;
+export default MelvinOSWelcomeIcon;

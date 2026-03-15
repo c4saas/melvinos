@@ -126,7 +126,7 @@ async function extractAndSaveMemories(
 
       const content = item.content.trim();
 
-      // Deduplication: check up to 3 keyword searches, lower threshold (0.5) to catch near-duplicates
+      // Deduplication: fire all 3 keyword searches in parallel, then check combined results
       const keywords = content
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, '')
@@ -134,15 +134,16 @@ async function extractAndSaveMemories(
         .filter((w: string) => w.length > 3)
         .slice(0, 3);
 
-      let isDuplicate = false;
+      const results = await Promise.all(keywords.map((kw) => storage.searchAgentMemories(kw, 20)));
+      const contentLower = content.toLowerCase();
       const checkedIds = new Set<string>();
-      for (const kw of keywords) {
+      let isDuplicate = false;
+      for (const batch of results) {
         if (isDuplicate) break;
-        const existing = await storage.searchAgentMemories(kw, 20);
-        for (const mem of existing) {
+        for (const mem of batch) {
           if (checkedIds.has(mem.id)) continue;
           checkedIds.add(mem.id);
-          if (computeSimilarity(content.toLowerCase(), mem.content.toLowerCase()) > 0.5) {
+          if (computeSimilarity(contentLower, mem.content.toLowerCase()) > 0.5) {
             isDuplicate = true;
             break;
           }

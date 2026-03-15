@@ -40,7 +40,7 @@ export interface AdminApiEndpoint {
 export type AdminRouteGroupId =
   | 'overview'
   | 'setup'
-  | 'melvin'
+  | 'melvinos'
   | 'subagents'
   | 'knowledge'
   | 'tools-skills'
@@ -90,7 +90,7 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
       { method: 'POST', path: '/api/admin/system-prompts' },
       { method: 'PATCH', path: '/api/admin/system-prompts/:id' },
     ],
-    groupId: 'melvin',
+    groupId: 'melvinos',
     dashboardCards: {
       system: {
         title: 'System Prompts',
@@ -111,7 +111,7 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
       { method: 'PATCH', path: '/api/admin/output-templates/:id' },
       { method: 'DELETE', path: '/api/admin/output-templates/:id' },
     ],
-    groupId: 'melvin',
+    groupId: 'melvinos',
     dashboardCards: {
       system: {
         title: 'Output Templates',
@@ -221,7 +221,7 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
     groupId: 'subagents',
     pageHeader: {
       title: 'Subagent Library',
-      description: 'Configure specialized subagents called upon by Melvin to handle domain-specific tasks.',
+      description: 'Configure specialized subagents called upon by the agent to handle domain-specific tasks.',
     },
     dashboardCards: {
       system: {
@@ -273,7 +273,7 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
     groupId: 'tools-skills',
     pageHeader: {
       title: 'Skills',
-      description: 'Configure the skills Melvin can use to help users — from coding to research to productivity tools.',
+      description: 'Configure the skills the agent can use to help users — from coding to research to productivity tools.',
     },
     dashboardCards: {
       system: {
@@ -417,12 +417,12 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
     groupId: 'advanced',
     pageHeader: {
       title: 'SSH Servers',
-      description: 'Configure remote server connections so Melvin can execute commands via SSH.',
+      description: 'Configure remote server connections so the agent can execute commands via SSH.',
     },
     dashboardCards: {
       system: {
         title: 'SSH Servers',
-        description: 'Connect remote servers so Melvin can run commands and manage infrastructure.',
+        description: 'Connect remote servers so the agent can run commands and manage infrastructure.',
         actionLabel: 'Manage servers',
         icon: 'Terminal',
       },
@@ -473,8 +473,8 @@ export const ADMIN_ROUTE_GROUPS: readonly AdminRouteGroupDefinition[] = [
     routeIds: ['setup'],
   },
   {
-    id: 'melvin',
-    label: 'Melvin',
+    id: 'melvinos',
+    label: 'MelvinOS',
     icon: 'Bot',
     requiredPermission: PERMISSIONS.SYSTEM_PROMPTS_VIEW,
     routeIds: ['system-prompts', 'output-templates'],

@@ -1,6 +1,6 @@
-# Atlas — Autonomous AI Agent Platform
+# MelvinOS — Autonomous AI Agent Platform
 
-Atlas is a self-hosted, single-user autonomous AI agent platform. It connects to your tools (Gmail, Calendar, Drive, Notion, GoHighLevel, n8n, SSH servers, and more) and executes multi-step tasks end-to-end using the AI model of your choice.
+MelvinOS is a self-hosted, single-user autonomous AI agent platform. It connects to your tools (Gmail, Calendar, Drive, Notion, GoHighLevel, n8n, SSH servers, and more) and executes multi-step tasks end-to-end using the AI model of your choice.
 
 ## Features
 
@@ -22,8 +22,8 @@ Atlas is a self-hosted, single-user autonomous AI agent platform. It connects to
 ## Quick Start (Docker)
 
 ```bash
-git clone https://github.com/your-org/atlas.git
-cd atlas
+git clone https://github.com/your-org/melvinos.git
+cd melvinos
 cp .env.example .env
 # Edit .env — add your API keys and set POSTGRES_PASSWORD, SESSION_SECRET, API_KEY_ENCRYPTION_KEY
 docker compose up -d
@@ -57,9 +57,9 @@ Copy `.env.example` to `.env` and fill in real values:
 | `N8N_BASE_URL` | Your n8n instance URL (e.g. `https://n8n.yourdomain.com`). Leave blank to disable. |
 | `N8N_API_KEY` | n8n API key for workflow management. |
 | `GHL_FROM_EMAIL` | Default sender email for GoHighLevel transactional emails. |
-| `PLATFORM_NAME` | Display name for the platform (default: `Atlas`). |
-| `AGENT_NAME` | Display name for the AI agent (default: `Atlas`). |
-| `APP_URL` | Public URL of the app, used in email links (e.g. `https://atlas.yourdomain.com`). |
+| `PLATFORM_NAME` | Display name for the platform (default: `MelvinOS`). |
+| `AGENT_NAME` | Display name for the AI agent (default: `MelvinOS`). |
+| `APP_URL` | Public URL of the app, used in email links (e.g. `https://app.melvinos.com`). |
 | `KNOWLEDGE_FETCH_HOST_ALLOWLIST` | Comma-separated hostnames allowed for URL knowledge ingestion. |
 | `FILE_STORAGE_TTL_MS` | In-memory file storage TTL in ms (default: `86400000`). |
 | `FILE_STORAGE_QUOTA_BYTES` | Per-user file storage quota in bytes (default: `52428800`). |

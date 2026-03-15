@@ -6,12 +6,12 @@ interface Branding {
   platformName: string;
 }
 
-const DEFAULT_AGENT_NAME = 'Atlas';
-const DEFAULT_PLATFORM_NAME = 'Atlas AI Platform';
+const DEFAULT_AGENT_NAME = 'MelvinOS';
+const DEFAULT_PLATFORM_NAME = 'MelvinOS';
 
 /**
  * Provides whitelabel-safe branding values sourced from user preferences.
- * All UI text should use these values instead of hardcoded "Melvin" / "Atlas".
+ * All UI text should use these values instead of hardcoded "MelvinOS".
  */
 export function useBranding(): Branding {
   const { data } = useQuery<{ aiName?: string }>({

@@ -8,10 +8,22 @@ function isSafeMethod(method: string): boolean {
 }
 
 export function attachCsrfToken(req: Request, res: Response, next: NextFunction) {
-  // If session middleware was skipped (anonymous request), generate a stateless cookie token
-  const token = req.session
-    ? (req.session.csrfToken || (req.session.csrfToken = generateCsrfToken()))
-    : generateCsrfToken();
+  // Prefer session-stored token; fall back to incoming cookie; otherwise generate fresh.
+  // Token is stored on req so downstream handlers can read it without re-parsing the response.
+  let token: string;
+  if (req.session?.csrfToken) {
+    token = req.session.csrfToken;
+  } else if (req.cookies?.['XSRF-TOKEN']) {
+    token = req.cookies['XSRF-TOKEN'];
+    // Persist into session if one exists
+    if (req.session) req.session.csrfToken = token;
+  } else {
+    token = generateCsrfToken();
+    if (req.session) req.session.csrfToken = token;
+  }
+
+  // Expose to route handlers via req.csrfToken
+  (req as any).csrfToken = token;
 
   const secure = req.app.get('env') === 'production' && process.env.COOKIE_SECURE !== 'false';
   res.cookie('XSRF-TOKEN', token, {
@@ -29,15 +41,25 @@ export function verifyCsrfToken(req: Request, res: Response, next: NextFunction)
     return next();
   }
 
-  // If no session (anonymous request), CSRF is validated by the cookie itself
-  if (!req.session?.csrfToken) {
+  const submitted = (req.headers['x-csrf-token'] as string | undefined)
+    || (typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, any>)._csrf : undefined);
+
+  if (!submitted) {
     return res.status(403).json({ error: 'Missing CSRF token' });
   }
 
-  const token = (req.headers['x-csrf-token'] as string | undefined)
-    || (typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, any>)._csrf : undefined);
+  // Authenticated session: compare against session-stored token
+  if (req.session?.csrfToken) {
+    if (!secureCompare(submitted, req.session.csrfToken)) {
+      return res.status(403).json({ error: 'Invalid CSRF token' });
+    }
+    return next();
+  }
 
-  if (!token || !secureCompare(token, req.session.csrfToken)) {
+  // Unauthenticated (pre-login): double-submit cookie pattern —
+  // submitted header must match the XSRF-TOKEN cookie sent with the request.
+  const cookieToken = req.cookies?.['XSRF-TOKEN'];
+  if (!cookieToken || !secureCompare(submitted, cookieToken)) {
     return res.status(403).json({ error: 'Invalid CSRF token' });
   }
 

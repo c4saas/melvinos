@@ -1,4 +1,4 @@
-# Atlas AI - Horizon UI Design Guidelines
+# MelvinOS - Horizon UI Design Guidelines
 
 ## Design Approach
 **Design System Approach**: Following Horizon UI design principles for a cohesive, professional AI chat application. Prioritizes functional efficiency, visual consistency, and seamless user experience across multiple AI model providers.

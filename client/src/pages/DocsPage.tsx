@@ -142,11 +142,11 @@ function SectionChat() {
           <p>Toggle it using the lightning bolt icon in the <strong>chat header</strong> (top-left of the chat, next to the model selector).</p>
           <p className="font-medium text-foreground mt-2">What Thor Mode changes:</p>
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li><strong>Thinking budget</strong> — Maxed to 16,000 tokens (vs. 4,000 standard)</li>
-            <li><strong>Max output tokens</strong> — Up to 64,000 tokens (vs. 4,000 standard)</li>
-            <li><strong>Tool iterations</strong> — Up to 100 rounds (vs. 25 standard)</li>
+            <li><strong>Thinking budget</strong> — Maxed to 32,000 tokens (vs. 4,000 standard)</li>
+            <li><strong>Max output tokens</strong> — Full model limit (200K for Claude/GPT-5.4, 1M for Gemini)</li>
+            <li><strong>Tool iterations</strong> — Up to 100 rounds (vs. 50 standard)</li>
             <li><strong>Temperature</strong> — Set to 1.0 for maximum creativity</li>
-            <li><strong>Web search</strong> — Automatically uses deep research mode</li>
+            <li><strong>Web search</strong> — Automatically uses Perplexity Sonar Deep Research</li>
           </ul>
         </CardContent>
       </Card>
@@ -197,7 +197,7 @@ function SectionChat() {
                   <td className="px-2 py-1.5 text-right">$0.015</td>
                 </tr>
                 <tr>
-                  <td className="px-2 py-1.5 font-medium text-foreground">GPT-5.2</td>
+                  <td className="px-2 py-1.5 font-medium text-foreground">GPT-5.4</td>
                   <td className="px-2 py-1.5">OpenAI</td>
                   <td className="px-2 py-1.5 text-right">200K</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
@@ -205,8 +205,8 @@ function SectionChat() {
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
                   <td className="px-2 py-1.5 text-blue-400">Native</td>
-                  <td className="px-2 py-1.5 text-right">$0.010</td>
-                  <td className="px-2 py-1.5 text-right">$0.030</td>
+                  <td className="px-2 py-1.5 text-right">—</td>
+                  <td className="px-2 py-1.5 text-right">—</td>
                 </tr>
                 <tr>
                   <td className="px-2 py-1.5 font-medium text-foreground">Gemini 3.1 Pro</td>
@@ -233,7 +233,7 @@ function SectionChat() {
                   <td className="px-2 py-1.5 text-right">$0.0006</td>
                 </tr>
                 <tr>
-                  <td className="px-2 py-1.5 font-medium text-foreground">Compound Beta</td>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Titan-V</td>
                   <td className="px-2 py-1.5">Groq</td>
                   <td className="px-2 py-1.5 text-right">32K</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
@@ -241,11 +241,11 @@ function SectionChat() {
                   <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
                   <td className="px-2 py-1.5 text-blue-400">Native</td>
-                  <td className="px-2 py-1.5 text-right">$0.002</td>
-                  <td className="px-2 py-1.5 text-right">$0.002</td>
+                  <td className="px-2 py-1.5 text-right">—</td>
+                  <td className="px-2 py-1.5 text-right">—</td>
                 </tr>
                 <tr>
-                  <td className="px-2 py-1.5 font-medium text-foreground">OS-120B</td>
+                  <td className="px-2 py-1.5 font-medium text-foreground">GPT OS 120B</td>
                   <td className="px-2 py-1.5">Groq</td>
                   <td className="px-2 py-1.5 text-right">64K</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
@@ -253,13 +253,13 @@ function SectionChat() {
                   <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
                   <td className="px-2 py-1.5 text-amber-400">Perplexity</td>
-                  <td className="px-2 py-1.5 text-right">$0.003</td>
-                  <td className="px-2 py-1.5 text-right">$0.003</td>
+                  <td className="px-2 py-1.5 text-right">—</td>
+                  <td className="px-2 py-1.5 text-right">—</td>
                 </tr>
                 <tr>
                   <td className="px-2 py-1.5 font-medium text-foreground">Qwen 3.5 397B</td>
                   <td className="px-2 py-1.5">Ollama</td>
-                  <td className="px-2 py-1.5 text-right">32K</td>
+                  <td className="px-2 py-1.5 text-right">64K</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
@@ -292,8 +292,8 @@ function SectionChat() {
                   <td className="px-2 py-1.5 text-right">$0.005</td>
                   <td className="px-2 py-1.5 text-right">$0.005</td>
                 </tr>
-                <tr>
-                  <td className="px-2 py-1.5 font-medium text-foreground">Llama 3.1 8B</td>
+                <tr className="opacity-60">
+                  <td className="px-2 py-1.5 font-medium text-foreground">Vega-3 <span className="text-xs font-normal text-muted-foreground/70 ml-1">legacy</span></td>
                   <td className="px-2 py-1.5">Groq</td>
                   <td className="px-2 py-1.5 text-right">32K</td>
                   <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
@@ -301,8 +301,8 @@ function SectionChat() {
                   <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
                   <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
                   <td className="px-2 py-1.5 text-muted-foreground/50">None</td>
-                  <td className="px-2 py-1.5 text-right">$0.00005</td>
-                  <td className="px-2 py-1.5 text-right">$0.00008</td>
+                  <td className="px-2 py-1.5 text-right">—</td>
+                  <td className="px-2 py-1.5 text-right">—</td>
                 </tr>
               </tbody>
             </table>
@@ -317,6 +317,10 @@ function SectionChat() {
             <strong className="text-blue-400">Native</strong> = uses provider's built-in web search (no Perplexity cost). &nbsp;
             <strong className="text-amber-400">Perplexity</strong> = web search routed through Perplexity Sonar Pro. &nbsp;
             <strong className="text-green-500">Built-in</strong> = search is the core product.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            <strong>Native</strong> models: Claude Opus 4.6, Claude Sonnet 4.6, GPT-5.4, Gemini 3.1 Pro, Gemini 2.5 Flash, Titan-V. &nbsp;
+            All others fall back to Perplexity Sonar Pro.
           </p>
           <p className="text-xs text-muted-foreground/70 mt-1">
             Deep Research and Thor Mode always use Perplexity Sonar Deep Research regardless of model.
@@ -526,7 +530,7 @@ function SectionTools() {
         <CardHeader><CardTitle className="text-base">Web & Research</CardTitle></CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           <ul className="list-disc list-inside space-y-1">
-            <li><code className="text-xs bg-muted px-1 rounded">web_search</code> — Search the web for current information. Uses native provider search for GPT-5.2, Claude, Gemini, and Compound; falls back to Perplexity Sonar Pro for other models. Deep research and Thor Mode always use Sonar Deep Research.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">web_search</code> — Search the web for current information. Uses native provider search for Claude (Opus/Sonnet), GPT-5.4, Gemini (Pro/Flash), and Titan-V; falls back to Perplexity Sonar Pro for all other models. Deep Research and Thor Mode always use Sonar Deep Research.</li>
             <li><code className="text-xs bg-muted px-1 rounded">web_fetch</code> — Fetch and extract content from any URL</li>
             <li><code className="text-xs bg-muted px-1 rounded">deep_research</code> — Comprehensive multi-step research reports (Perplexity Sonar Deep Research)</li>
           </ul>
@@ -564,7 +568,8 @@ function SectionTools() {
             <li><code className="text-xs bg-muted px-1 rounded">schedule_task</code> — Create a cron-scheduled task with a standard 5-field cron expression (e.g. <code className="text-xs bg-muted px-1 rounded">0 9 * * 1</code> for every Monday at 9am). One-shot or recurring.</li>
             <li><code className="text-xs bg-muted px-1 rounded">list_scheduled_tasks</code> — List all scheduled tasks with their next/last run times and enabled status.</li>
             <li><code className="text-xs bg-muted px-1 rounded">delete_scheduled_task</code> — Remove a scheduled task by ID.</li>
-            <li><code className="text-xs bg-muted px-1 rounded">memory_save</code> / <code className="text-xs bg-muted px-1 rounded">memory_search</code> — Persist and retrieve information across conversations</li>
+            <li><code className="text-xs bg-muted px-1 rounded">memory_save</code> / <code className="text-xs bg-muted px-1 rounded">memory_search</code> / <code className="text-xs bg-muted px-1 rounded">memory_delete</code> — Persist, retrieve, and remove information across conversations</li>
+            <li><code className="text-xs bg-muted px-1 rounded">list_output_templates</code> — Look up configured output templates by name. Used automatically when you ask {agentName} to "use the [name] template" in a conversation.</li>
           </ul>
           <p className="mt-2">Scheduled tasks survive server restarts and are managed from Settings → Monitoring → Scheduled Tasks. When multiple tools are needed in a single turn, {agentName} executes them in parallel for faster results.</p>
         </CardContent>
@@ -614,9 +619,12 @@ function SectionSubagents() {
       <Card>
         <CardHeader><CardTitle className="text-base">Output Templates</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>Each subagent can be assigned an <strong>Output Template</strong> that defines the structure of its responses.
-          This ensures consistent formatting — for example, a sales subagent always returns a structured proposal with specific sections.</p>
-          <p>Assign templates when creating or editing a subagent in the Subagent Library.</p>
+          <p>Output Templates define structured formatting rules that {agentName} applies to its responses. Two ways to use them:</p>
+          <ul className="list-disc list-inside space-y-2 ml-2">
+            <li><strong>Per-subagent</strong> — Assign a template when creating or editing a subagent in <em>Settings &gt; Subagent Library</em>. The template is automatically applied to every response from that subagent.</li>
+            <li><strong>On-demand in conversation</strong> — Tell {agentName} <em>"use the morning brief template"</em> or <em>"format this as the daily email"</em>. {agentName} will use the <code className="text-xs bg-muted px-1 rounded">list_output_templates</code> tool to look up the matching template and apply it to its response.</li>
+          </ul>
+          <p>Create and manage templates in <em>Settings &gt; {agentName} &gt; Output Templates</em>.</p>
         </CardContent>
       </Card>
 
@@ -767,7 +775,7 @@ function SectionIntegrations() {
           <ol className="list-decimal list-inside space-y-1">
             <li>Enter your <strong>Recall API Key</strong> in <em>Settings &gt; Integrations</em>.</li>
             <li>Optionally configure the region (default: us-west-2).</li>
-            <li>In the <a href="https://us-west-2.recall.ai/dashboard/webhooks" className="underline" target="_blank" rel="noopener noreferrer">Recall dashboard → Webhooks</a>, add a webhook pointing to <code className="text-xs bg-muted px-1 rounded">https://atlas.c4saas.com/api/webhooks/recall</code> with events <strong>bot.done</strong> and <strong>bot.fatal</strong>.</li>
+            <li>In the <a href="https://us-west-2.recall.ai/dashboard/webhooks" className="underline" target="_blank" rel="noopener noreferrer">Recall dashboard → Webhooks</a>, add a webhook pointing to <code className="text-xs bg-muted px-1 rounded">{`${window.location.origin}/api/webhooks/recall`}</code> with events <strong>bot.done</strong> and <strong>bot.fatal</strong>.</li>
             <li>Optionally set <code className="text-xs bg-muted px-1 rounded">RECALL_WEBHOOK_SECRET</code> in server env to enable HMAC signature verification on incoming webhooks.</li>
           </ol>
         </CardContent>
@@ -795,17 +803,29 @@ function SectionHeartbeat() {
     <div className="space-y-4">
       <h2 className="text-2xl font-bold">Heartbeat</h2>
       <p className="text-muted-foreground">
-        Heartbeat is {agentName}'s autonomous periodic scan. It proactively checks your calendar, emails, tasks, and system health — then sends you a summary.
+        Heartbeat is {agentName}'s autonomous keepalive loop. Every tick it first continues any active work in progress, then runs your configured periodic scans — keeping {agentName} always-on without external triggers.
       </p>
 
       <Card>
         <CardHeader><CardTitle className="text-base">How It Works</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Each heartbeat tick runs in two phases:</p>
           <ol className="list-decimal list-inside space-y-2">
-            <li>Configure the scan schedule in <em>Settings &gt; Heartbeat</em> (e.g., every morning at 8am).</li>
-            <li>Define a checklist of items to scan (upcoming meetings, unread emails, pending tasks, etc.).</li>
-            <li>Choose a delivery channel — Telegram, email, or in-app notification.</li>
-            <li>{agentName} runs the scan autonomously and sends a formatted summary.</li>
+            <li><strong>Phase 1 — Continue active work:</strong> If {agentName} has an in-progress task or open conversation, it resumes and advances that work first.</li>
+            <li><strong>Phase 2 — Scheduled scans:</strong> After active work, {agentName} runs your configured checklist (upcoming meetings, unread emails, pending tasks, etc.) and delivers a summary.</li>
+          </ol>
+          <p>Every heartbeat response ends with a <code className="text-xs bg-muted px-1 rounded">NEXT TICK:</code> plan so {agentName} always knows where to pick up.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Configuration</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <ol className="list-decimal list-inside space-y-2">
+            <li>Go to <em>Settings &gt; Heartbeat</em> and enable the scheduler.</li>
+            <li>Set the interval (e.g., every 30 minutes) or a specific schedule.</li>
+            <li>Define scan items — what {agentName} should check each tick.</li>
+            <li>Choose a delivery channel — Telegram, email, or in-app.</li>
           </ol>
         </CardContent>
       </Card>
@@ -813,7 +833,7 @@ function SectionHeartbeat() {
       <Card>
         <CardHeader><CardTitle className="text-base">Manual Trigger</CardTitle></CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          <p>You can trigger a heartbeat scan manually from the Heartbeat settings page using the <strong>Run Now</strong> button. This is useful for testing your configuration.</p>
+          <p>You can trigger a heartbeat tick manually from the Heartbeat settings page using the <strong>Run Now</strong> button, or via <code className="text-xs bg-muted px-1 rounded">POST /api/admin/heartbeat/trigger</code>. Useful for testing your configuration.</p>
         </CardContent>
       </Card>
     </div>
@@ -908,7 +928,8 @@ function SectionApi() {
         <CardHeader><CardTitle className="text-base">Authentication</CardTitle></CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           <div className="space-y-1 font-mono text-xs">
-            <p><span className="text-green-500">POST</span> /api/auth/login</p>
+            <p><span className="text-blue-500">GET</span> /api/auth/csrf-token <span className="font-sans text-muted-foreground/70">— get CSRF token (call before login to establish session)</span></p>
+            <p><span className="text-green-500">POST</span> /api/auth/login <span className="font-sans text-muted-foreground/70">— requires X-CSRF-Token header</span></p>
             <p><span className="text-green-500">POST</span> /api/auth/logout</p>
             <p><span className="text-blue-500">GET</span> /api/auth/user</p>
             <p><span className="text-blue-500">GET</span> /api/auth/setup-status</p>
@@ -923,11 +944,16 @@ function SectionApi() {
             <p><span className="text-blue-500">GET</span> /api/chats</p>
             <p><span className="text-green-500">POST</span> /api/chats</p>
             <p><span className="text-blue-500">GET</span> /api/chats/:id/messages</p>
-            <p><span className="text-green-500">POST</span> /api/chats/:id/messages</p>
             <p><span className="text-yellow-500">PATCH</span> /api/chats/:id/rename</p>
             <p><span className="text-yellow-500">PATCH</span> /api/chats/:id/move-to-project</p>
             <p><span className="text-red-500">DELETE</span> /api/chats/:id</p>
           </div>
+          <p className="mt-3 font-semibold text-foreground text-xs">Streaming Completions (SSE)</p>
+          <div className="space-y-1 font-mono text-xs mt-1">
+            <p><span className="text-green-500">POST</span> /api/chat/completions/stream <span className="font-sans text-muted-foreground/70">— agent mode, Server-Sent Events</span></p>
+            <p><span className="text-green-500">POST</span> /api/chat/completions <span className="font-sans text-muted-foreground/70">— single LLM call, non-streaming</span></p>
+          </div>
+          <p className="mt-2 text-xs">Stream events: <code className="bg-muted px-1 rounded">agent_status</code>, <code className="bg-muted px-1 rounded">thinking</code>, <code className="bg-muted px-1 rounded">text_delta</code>, <code className="bg-muted px-1 rounded">tool_call</code>, <code className="bg-muted px-1 rounded">tool_result</code>, <code className="bg-muted px-1 rounded">done</code>, <code className="bg-muted px-1 rounded">error</code></p>
         </CardContent>
       </Card>
 
@@ -1125,11 +1151,11 @@ export default function DocsPage() {
         </div>
 
         {/* Content */}
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8">
             <ActiveComponent />
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </div>
   );

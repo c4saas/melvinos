@@ -1289,6 +1289,7 @@ export function Chat() {
         projectId: chat.projectId ?? null,
       }))}
       activeChat={activeChat}
+      streamingChatId={streamingStatus === 'streaming' ? activeChat : null}
       onChatSelect={handleChatSelect}
       onChatArchive={handleChatArchive}
       onChatDelete={handleChatDelete}

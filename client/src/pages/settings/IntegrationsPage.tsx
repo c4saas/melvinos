@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, Globe, BookOpen, Mic2, Check, X, Send, ChevronDown, ChevronUp, Settings2, Presentation, Plus, Trash2, Calendar, RefreshCw, Video, VideoOff, Unlink } from 'lucide-react';
+import { Loader2, Save, Globe, BookOpen, Mic2, Check, Send, ChevronDown, ChevronUp, Settings2, Presentation, Plus, Trash2, Calendar, RefreshCw, Video, VideoOff, Unlink } from 'lucide-react';
 import { useAdminLayout } from '@/components/AdminLayout';
 import { AdminSettingsErrorState } from '@/components/admin';
 import { getAdminRouteById } from '@shared/adminRoutes';
@@ -676,12 +676,6 @@ export default function IntegrationsPage() {
             </CardContent>
           </Card>
         </section>
-
-        {/* ── Integrations not shown ── */}
-        <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-          <X className="mx-auto mb-1 h-4 w-4 opacity-40" />
-          Additional integrations (Slack, HubSpot, GHL) coming soon.
-        </div>
 
       </div>
     </div>

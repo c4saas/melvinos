@@ -10,7 +10,7 @@ interface TicketSummary {
 }
 
 const ORGANIZATIONS: OrganizationSummary[] = [
-  { id: 'org-1', name: 'Atlas Labs', members: 18 },
+  { id: 'org-1', name: 'MelvinOS Labs', members: 18 },
   { id: 'org-2', name: 'Globex Research', members: 9 },
   { id: 'org-3', name: 'Initech', members: 6 },
   { id: 'org-4', name: 'Wonka Industries', members: 3 },

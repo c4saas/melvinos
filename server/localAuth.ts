@@ -39,6 +39,7 @@ const SESSION_REQUIRED_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/enroll',
+  '/api/auth/csrf-token', // must establish session so the returned token is usable for login
 ]);
 
 export async function setupAuth(app: Express) {

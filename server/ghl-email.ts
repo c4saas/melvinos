@@ -153,7 +153,7 @@ export class GHLEmailService {
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">${process.env.PLATFORM_NAME || 'Atlas'}</h1>
+          <h1 style="color: white; margin: 0; font-size: 28px;">${process.env.PLATFORM_NAME || 'MelvinOS'}</h1>
         </div>
         
         <div style="background: white; padding: 40px 30px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
@@ -161,7 +161,7 @@ export class GHLEmailService {
           
           <p>Hi there,</p>
           
-          <p>We received a request to reset your password for your ${process.env.PLATFORM_NAME || 'Atlas'} account. Click the button below to create a new password:</p>
+          <p>We received a request to reset your password for your ${process.env.PLATFORM_NAME || 'MelvinOS'} account. Click the button below to create a new password:</p>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="${resetUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">Reset Password</a>
@@ -179,7 +179,7 @@ export class GHLEmailService {
         </div>
         
         <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-          <p>© ${new Date().getFullYear()} ${process.env.PLATFORM_NAME || 'Atlas'}. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} ${process.env.PLATFORM_NAME || 'MelvinOS'}. All rights reserved.</p>
         </div>
       </body>
       </html>
@@ -187,7 +187,7 @@ export class GHLEmailService {
 
     return this.sendEmail({
       to,
-      subject: 'Reset Your ${process.env.PLATFORM_NAME || 'Atlas'} Password',
+      subject: 'Reset Your ${process.env.PLATFORM_NAME || 'MelvinOS'} Password',
       htmlBody,
     });
   }
@@ -200,19 +200,19 @@ export class GHLEmailService {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to ${process.env.PLATFORM_NAME || 'Atlas'}</title>
+        <title>Welcome to ${process.env.PLATFORM_NAME || 'MelvinOS'}</title>
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to ${process.env.PLATFORM_NAME || 'Atlas'}</h1>
+          <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to ${process.env.PLATFORM_NAME || 'MelvinOS'}</h1>
         </div>
         
         <div style="background: white; padding: 40px 30px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
           <h2 style="color: #333; margin-top: 0;">Hi ${name}! 👋</h2>
           
-          <p>Welcome to <strong>${process.env.PLATFORM_NAME || 'Atlas'}</strong> - your intelligent AI companion powered by the most advanced language models.</p>
+          <p>Welcome to <strong>${process.env.PLATFORM_NAME || 'MelvinOS'}</strong> - your intelligent AI companion powered by the most advanced language models.</p>
           
-          <h3 style="color: #667eea; margin-top: 30px;">What you can do with ${process.env.PLATFORM_NAME || 'Atlas'}:</h3>
+          <h3 style="color: #667eea; margin-top: 30px;">What you can do with ${process.env.PLATFORM_NAME || 'MelvinOS'}:</h3>
           <ul style="line-height: 2;">
             <li>💬 <strong>Chat with Multiple AI Models</strong> - Access GPT-5, Claude, Groq, and more</li>
             <li>🔍 <strong>Real-Time Web Search</strong> - Get up-to-date information</li>
@@ -231,17 +231,17 @@ export class GHLEmailService {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.APP_URL || process.env.APP_URL || 'http://localhost:3001'}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">Start Chatting</a>
+            <a href="${process.env.APP_URL}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">Start Chatting</a>
           </div>
           
           <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
             <strong>Need help?</strong><br>
-            Check out our documentation or reach out to support. We're here to help you get the most out of ${process.env.PLATFORM_NAME || 'Atlas'}.
+            Check out our documentation or reach out to support. We're here to help you get the most out of ${process.env.PLATFORM_NAME || 'MelvinOS'}.
           </p>
         </div>
         
         <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-          <p>© ${new Date().getFullYear()} ${process.env.PLATFORM_NAME || 'Atlas'}. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} ${process.env.PLATFORM_NAME || 'MelvinOS'}. All rights reserved.</p>
         </div>
       </body>
       </html>
@@ -249,7 +249,7 @@ export class GHLEmailService {
 
     return this.sendEmail({
       to,
-      subject: 'Welcome to ${process.env.PLATFORM_NAME || 'Atlas'} - Your Intelligent AI Companion',
+      subject: 'Welcome to ${process.env.PLATFORM_NAME || 'MelvinOS'} - Your Intelligent AI Companion',
       htmlBody,
     });
   }

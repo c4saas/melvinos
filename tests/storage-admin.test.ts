@@ -282,7 +282,7 @@ test('MemStorage system prompt versioning keeps a single active prompt', async (
   assert.equal(initialPrompts[0].isActive, true);
 
   const created = await storage.createSystemPrompt({
-    content: 'You are the upgraded Atlas AI.',
+    content: 'You are the upgraded MelvinOS.',
     label: 'v2',
     notes: 'First revision',
     createdByUserId: 'admin-1',

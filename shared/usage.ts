@@ -5,7 +5,7 @@ export interface ModelPricing {
 
 export const MODEL_PRICING: Record<string, ModelPricing> = {
   // OpenAI
-  'gpt-5.2': { promptCostPer1k: 0.01, completionCostPer1k: 0.03 },
+  'gpt-5.4': { promptCostPer1k: 0.01, completionCostPer1k: 0.03 },
   // Anthropic
   'claude-sonnet-4-6': { promptCostPer1k: 0.003, completionCostPer1k: 0.015 },
   'claude-opus-4-6': { promptCostPer1k: 0.015, completionCostPer1k: 0.075 },

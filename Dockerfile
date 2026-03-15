@@ -45,44 +45,44 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user early so npm install writes files owned by atlas
-RUN groupadd --gid 1001 atlas && \
-    useradd --uid 1001 --gid atlas --shell /bin/sh --create-home atlas
+# Create non-root user early so npm install writes files owned by melvinos
+RUN groupadd --gid 1001 melvinos && \
+    useradd --uid 1001 --gid melvinos --shell /bin/sh --create-home melvinos
 
 WORKDIR /app
-RUN chown atlas:atlas /app && \
+RUN chown melvinos:melvinos /app && \
     mkdir -p /app/uploads/files /app/workspace && \
-    chown -R atlas:atlas /app/uploads /app/workspace
+    chown -R melvinos:melvinos /app/uploads /app/workspace
 
-USER atlas
+USER melvinos
 
-# Copy only what's needed to run (owned by atlas via --chown)
-COPY --chown=atlas:atlas package.json package-lock.json ./
+# Copy only what's needed to run (owned by melvinos via --chown)
+COPY --chown=melvinos:melvinos package.json package-lock.json ./
 
 # Install production dependencies + vite (needed by server/vite.ts at runtime)
 RUN npm install --omit=dev --ignore-scripts && npm install vite --ignore-scripts && npm rebuild sharp
 
 # Copy compiled output from builder stage
-COPY --chown=atlas:atlas --from=builder /app/dist ./dist
+COPY --chown=melvinos:melvinos --from=builder /app/dist ./dist
 
 # Copy tessdata for OCR (needed at runtime by tesseract.js)
-COPY --chown=atlas:atlas --from=builder /app/server/tessdata ./server/tessdata
+COPY --chown=melvinos:melvinos --from=builder /app/server/tessdata ./server/tessdata
 
 # Copy migrations for DB migration runner
-COPY --chown=atlas:atlas --from=builder /app/migrations ./migrations
+COPY --chown=melvinos:melvinos --from=builder /app/migrations ./migrations
 
-# Atlas serves on PORT (default 3001 — overridden by docker-compose)
+# MelvinOS serves on PORT (default 3001 — overridden by docker-compose)
 EXPOSE 3001
 
 # Healthcheck — polls the /api/auth/user endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD node -e "fetch('http://localhost:' + (process.env.PORT || 3001) + '/api/auth/csrf-token').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-# Switch to root to install entrypoint (atlas can't write /usr/local/bin)
+# Switch to root to install entrypoint (melvinos can't write /usr/local/bin)
 USER root
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Entrypoint runs as root (sets up SSH keys), then drops to atlas user
+# Entrypoint runs as root (sets up SSH keys), then drops to melvinos user
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]

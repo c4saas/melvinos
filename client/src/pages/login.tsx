@@ -81,7 +81,7 @@ export default function Login() {
       <div className="relative w-full max-w-md mx-4 animate-fade-in-up">
         {/* Header */}
         <div className="text-center mb-8">
-          {/* Atlas mark */}
+          {/* MelvinOS mark */}
           <div className="relative inline-flex items-center justify-center w-16 h-16 mb-5">
             <div className="absolute inset-0 rounded-2xl bg-blue-500/15 border border-blue-500/30" />
             <div className="absolute inset-0 rounded-2xl animate-pulse-glow opacity-50" />
@@ -110,7 +110,7 @@ export default function Login() {
 
           <h1 className="text-2xl font-semibold tracking-tight os-gradient-text">{agentNameUpper}</h1>
           <p className="text-xs text-muted-foreground mt-1 tracking-widest uppercase font-medium">
-            Autonomous Intelligence System
+            {platformName}
           </p>
 
           {/* Status strip */}

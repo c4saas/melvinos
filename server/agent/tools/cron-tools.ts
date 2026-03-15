@@ -29,11 +29,14 @@ export const scheduleTaskTool: ToolDefinition = {
   },
   async execute(input: unknown, context: ToolContext): Promise<ToolResult> {
     const parsed = scheduleTaskSchema.safeParse(input);
-    if (!parsed.success) return { content: `Invalid input: ${parsed.error.message}`, isError: true };
+    if (!parsed.success) return { output: `Invalid input: ${parsed.error.message}` };
     const { name, cron, prompt, recurring, conversationId } = parsed.data;
 
     const userId = context.userId;
-    if (!userId) return { content: 'No user context.', isError: true };
+    if (!userId) return { output: 'No user context.' };
+
+    // Default conversationId to the current chat so cron results post back here
+    const resolvedConversationId = conversationId ?? context.conversationId ?? null;
 
     const job = await storage.createCronJob({
       userId,
@@ -42,7 +45,7 @@ export const scheduleTaskTool: ToolDefinition = {
       prompt,
       recurring: recurring ?? true,
       enabled: true,
-      conversationId: conversationId ?? null,
+      conversationId: resolvedConversationId,
       nextRunAt: null,
     });
 
@@ -51,7 +54,7 @@ export const scheduleTaskTool: ToolDefinition = {
     const nextStr = updated?.nextRunAt ? new Date(updated.nextRunAt).toLocaleString() : 'unknown';
 
     return {
-      content: `Scheduled job **"${name}"** (id: \`${job.id}\`)\n- Cron: \`${cron}\`\n- Recurring: ${recurring ?? true}\n- Next run: ${nextStr}`,
+      output: `Scheduled job "${name}" (id: ${job.id})\n- Cron: ${cron}\n- Recurring: ${recurring ?? true}\n- Next run: ${nextStr}`,
     };
   },
 };
@@ -64,19 +67,19 @@ export const listScheduledTasksTool: ToolDefinition = {
   inputSchema: { type: 'object', properties: {} },
   async execute(_input: unknown, context: ToolContext): Promise<ToolResult> {
     const userId = context.userId;
-    if (!userId) return { content: 'No user context.', isError: true };
+    if (!userId) return { output: 'No user context.' };
 
     const jobs = await storage.listCronJobs(userId);
-    if (jobs.length === 0) return { content: 'No scheduled tasks.' };
+    if (jobs.length === 0) return { output: 'No scheduled tasks.' };
 
     const lines = jobs.map(j => {
-      const status = j.enabled ? '✅ active' : '⏸ disabled';
+      const status = j.enabled ? 'active' : 'disabled';
       const next = j.nextRunAt ? new Date(j.nextRunAt).toLocaleString() : 'N/A';
       const last = j.lastRunAt ? new Date(j.lastRunAt).toLocaleString() : 'never';
-      return `- **${j.name}** (\`${j.id}\`) — ${status}\n  Cron: \`${j.cronExpression}\` | Next: ${next} | Last: ${last}`;
+      return `- ${j.name} (${j.id}) — ${status}\n  Cron: ${j.cronExpression} | Next: ${next} | Last: ${last}`;
     });
 
-    return { content: `**Scheduled Tasks (${jobs.length})**\n\n${lines.join('\n\n')}` };
+    return { output: `Scheduled Tasks (${jobs.length})\n\n${lines.join('\n\n')}` };
   },
 };
 
@@ -98,10 +101,10 @@ export const deleteScheduledTaskTool: ToolDefinition = {
   },
   async execute(input: unknown, _context: ToolContext): Promise<ToolResult> {
     const parsed = deleteScheduledTaskSchema.safeParse(input);
-    if (!parsed.success) return { content: `Invalid input: ${parsed.error.message}`, isError: true };
+    if (!parsed.success) return { output: `Invalid input: ${parsed.error.message}` };
 
     const deleted = await storage.deleteCronJob(parsed.data.id);
-    if (!deleted) return { content: `Job \`${parsed.data.id}\` not found.`, isError: true };
-    return { content: `Scheduled task \`${parsed.data.id}\` deleted.` };
+    if (!deleted) return { output: `Job ${parsed.data.id} not found.` };
+    return { output: `Scheduled task ${parsed.data.id} deleted.` };
   },
 };

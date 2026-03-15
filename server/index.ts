@@ -3,6 +3,10 @@ import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { runMigrations, verifyDatabaseConnection } from "./migrations";
+import { stopHeartbeatScheduler } from "./heartbeat/scheduler";
+import { stopTelegramBot } from "./telegram-bot";
+import { stopCleanupScheduler } from "./cleanup-scheduler";
+import { stopCronScheduler } from "./cron-scheduler";
 
 const app = express();
 app.use(express.json({ limit: '200mb' }));
@@ -67,6 +71,23 @@ app.use((req, res, next) => {
     // Disable socket idle timeout so long-running agent tasks (deep research, multi-tool
     // chains) are never cut off by Node's default 2-minute timeout.
     server.setTimeout(0);
+
+    // Graceful shutdown — allow in-flight agent loops, schedulers, and DB writes to finish
+    const shutdown = async (signal: string) => {
+      log(`[shutdown] ${signal} received — shutting down gracefully`);
+      server.close();
+      await Promise.allSettled([
+        stopHeartbeatScheduler(),
+        stopTelegramBot(),
+        stopCleanupScheduler(),
+        stopCronScheduler(),
+      ]);
+      log('[shutdown] Clean exit');
+      process.exit(0);
+    };
+    process.on('SIGTERM', () => void shutdown('SIGTERM'));
+    process.on('SIGINT',  () => void shutdown('SIGINT'));
+
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);

@@ -31,9 +31,9 @@ export async function runHeartbeatCycle(
   const userChats = await storage.getUserChats(melvinUser.id);
   let chat = userChats.find((c) => c.title === HEARTBEAT_CHAT_TITLE);
 
-  // Use heartbeat-specific model, then platform default, then fallback
-  const earlySettings = await storage.getPlatformSettings();
-  const platformDefault = (earlySettings.data as any)?.defaultModel as string | undefined;
+  // Load platform settings once — reused throughout this function
+  const platformSettings = await storage.getPlatformSettings();
+  const platformDefault = (platformSettings.data as any)?.defaultModel as string | undefined;
   const model = config.model || platformDefault || getDefaultModel();
   if (!chat) {
     chat = await storage.createChat({
@@ -50,7 +50,7 @@ export async function runHeartbeatCycle(
   await storage.createMessage({
     chatId: chat.id,
     role: 'user',
-    content: 'Run the heartbeat scan now.',
+    content: '⏱️ Heartbeat tick. Continue any active work in progress, then run your scheduled checks.',
     metadata: { source: 'heartbeat', automated: true },
   });
 
@@ -69,7 +69,6 @@ export async function runHeartbeatCycle(
   });
 
   // 7. Create LLM provider (with fallback)
-  const platformSettings = await storage.getPlatformSettings();
   const fallbackModel = (platformSettings.data as any)?.fallbackModel as string | null;
   const llmProvider = createFallbackAwareProvider(storage, model, fallbackModel);
 
@@ -203,10 +202,20 @@ function buildHeartbeatPrompt(config: HeartbeatSettings): string {
   const enabledItems = config.scanItems.filter((i) => i.enabled);
   const lines: string[] = [];
 
-  lines.push('## Heartbeat Executive Scan Protocol');
+  lines.push('## Heartbeat Agent Protocol');
   lines.push('');
-  lines.push('You are running a periodic heartbeat scan. Check the areas below and produce a brief, structured status report.');
-  lines.push('Use your available tools (web search, shell, file read, memory, etc.) to gather real data.');
+  lines.push('This is an automated keepalive tick. Your job has two phases — work through them in order:');
+  lines.push('');
+  lines.push('### Phase 1: Continue Active Work');
+  lines.push('Review this conversation history. If there is an ongoing task or incomplete work from a previous tick:');
+  lines.push('- Pick up exactly where you left off');
+  lines.push('- Run the next step using your available tools');
+  lines.push('- Provide a brief status update on progress (1-2 sentences)');
+  lines.push('- If the task is complete, summarize what was accomplished');
+  lines.push('');
+  lines.push('### Phase 2: Scheduled Checks');
+  lines.push('If there is no active work to continue, or after completing Phase 1, run the configured checks below.');
+  lines.push('Use your tools (web search, shell, memory, calendar, etc.) to gather real data — never guess.');
   lines.push('');
 
   if (config.constraints.length > 0) {
@@ -230,8 +239,20 @@ function buildHeartbeatPrompt(config: HeartbeatSettings): string {
   }
 
   lines.push('### Output Format');
-  lines.push('Provide a concise status for each checked area. Use plain text only — NO markdown, NO asterisks, NO hashtags, NO bullet dashes. Use simple labels like "SECTION:" followed by 1-2 sentences. Keep it readable as a plain SMS or chat message.');
-  lines.push(`If there is nothing material to report across all areas, respond with exactly: "${config.quietResponse}"`);
+  lines.push('Keep the response concise and plain-text only — NO markdown, NO asterisks, NO hashtags, NO bullet dashes.');
+  lines.push('For active work: start with "WORKING: [brief status]"');
+  lines.push('For scan results: use "SECTION:" labels followed by 1-2 sentences each.');
+  lines.push('');
+  lines.push('### NEXT TICK Directive (required — always the last line)');
+  lines.push('End every response with a NEXT TICK directive that tells the scheduler when to run next.');
+  lines.push('Format: NEXT TICK: [number] [minutes|hours|seconds] — [reason]');
+  lines.push('Rules:');
+  lines.push('- Mid-task with more work to do immediately → "NEXT TICK: 1 minute — continuing [task]"');
+  lines.push('- Awaiting a reply or short-horizon event → "NEXT TICK: 15 minutes — checking reply from [name]"');
+  lines.push('- Work complete, nothing urgent → "NEXT TICK: 60 minutes — scheduled scan"');
+  lines.push('- Long pause (overnight, weekend) → "NEXT TICK: 8 hours — resuming morning scan"');
+  lines.push('The scheduler reads this directive literally to set the next interval — use real numbers and units.');
+  lines.push(`If there is nothing to report and no active work, respond with: "${config.quietResponse}" then NEXT TICK.`);
 
   return lines.join('\n');
 }

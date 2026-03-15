@@ -15,7 +15,7 @@ import type { AdminOrganization } from '../types';
 
 const sampleOrganizations: AdminOrganization[] = [
   { id: 'org-2', name: 'Globex Research', members: 9 },
-  { id: 'org-1', name: 'Atlas Labs', members: 18 },
+  { id: 'org-1', name: 'MelvinOS Labs', members: 18 },
   { id: 'org-3', name: 'Initech', members: 6 },
 ];
 
@@ -25,13 +25,13 @@ test('sortOrganizations sorts by name and members as expected', () => {
   const byNameAsc = sortOrganizations(sampleOrganizations, { key: 'name', direction: 'asc' });
   assert.deepEqual(
     byNameAsc.map((org) => org.name),
-    ['Atlas Labs', 'Globex Research', 'Initech'],
+    ['MelvinOS Labs', 'Globex Research', 'Initech'],
   );
 
   const byNameDesc = sortOrganizations(sampleOrganizations, { key: 'name', direction: 'desc' });
   assert.deepEqual(
     byNameDesc.map((org) => org.name),
-    ['Initech', 'Globex Research', 'Atlas Labs'],
+    ['Initech', 'Globex Research', 'MelvinOS Labs'],
   );
 
   const byMembersAsc = sortOrganizations(sampleOrganizations, { key: 'members', direction: 'asc' });
