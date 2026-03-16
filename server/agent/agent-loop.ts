@@ -101,132 +101,147 @@ export async function* runAgentLoop(
     },
   };
 
-  for (let iteration = 1; iteration <= config.maxIterations; iteration++) {
+  // config.maxIterations is the safety circuit breaker — not a task limit.
+  // The loop runs until the model naturally stops calling tools (returns a text response
+  // with no tool calls). The circuit breaker only fires if something goes wrong (infinite
+  // loop, model stuck in a cycle, etc.) and injects a message asking the model to summarize
+  // what was completed and what still needs to be done.
+  const circuitBreaker = config.maxIterations;
+
+  for (let iteration = 1; ; iteration++) {
     yield {
       type: 'agent_status',
       iteration,
-      maxIterations: config.maxIterations,
+      maxIterations: circuitBreaker,
     };
 
-    // If we have tools, do a non-streaming completion to detect tool calls
-    if (toolDefs.length > 0 && iteration < config.maxIterations) {
-      let result: LLMCompletionResult;
-      try {
-        result = await provider.complete(conversationMessages, toolDefs, config);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        yield { type: 'error', message: `LLM call failed: ${message}` };
-        return;
-      }
-
-      if (result.usage) {
-        accumulatedUsage.promptTokens += result.usage.promptTokens;
-        accumulatedUsage.completionTokens += result.usage.completionTokens;
-        accumulatedUsage.totalTokens += result.usage.totalTokens;
-      }
-
-      if (result.thinkingContent) {
-        yield { type: 'thinking', text: result.thinkingContent };
-      }
-
-      // No tool calls — this is the final response
-      if (!result.toolCalls || result.toolCalls.length === 0) {
-        fullContent = result.content;
-        // Emit the response as text_delta events so the frontend can stream it
-        if (result.content) {
-          yield { type: 'text_delta', text: result.content };
-        }
-        break;
-      }
-
-      // Process tool calls
-      const assistantMessage: LLMMessage = {
-        role: 'assistant',
-        content: result.content || '',
-        tool_calls: result.toolCalls,
-      };
-      conversationMessages.push(assistantMessage);
-
-      // Parse all tool calls upfront
-      const parsedCalls = result.toolCalls.map((tc) => {
-        let args: Record<string, unknown> = {};
-        try { args = JSON.parse(tc.function.arguments); } catch { console.warn(`[agent-loop] Failed to parse tool args for ${tc.function.name}:`, tc.function.arguments); args = { _raw: tc.function.arguments }; }
-        return { toolCall: tc, name: tc.function.name, args, id: tc.id };
-      });
-
-      // Emit all tool_call events immediately
-      for (const pc of parsedCalls) {
-        yield { type: 'tool_call', id: pc.id, tool: pc.name, args: pc.args };
-      }
-
-      // Execute tools in parallel (isolated — one failure won't kill others)
-      const executionPromises = parsedCalls.map(async (pc) => {
-        const startTime = Date.now();
-        const toolResult = await toolRegistry.execute(pc.name, pc.args, context);
-        const durationMs = Date.now() - startTime;
-        // toolRegistry.execute never throws — errors are returned as toolResult.error
-        if (toolResult.error) {
-          void storage.logToolError({
-            toolName: pc.name,
-            error: toolResult.error,
-            args: sanitizeArgs(pc.args),
-            conversationId: context.conversationId ?? null,
-          }).catch((e: unknown) => console.warn('[agent-loop] Failed to persist tool error:', e));
-        }
-        return { pc, toolResult, durationMs };
-      });
-
-      const results = await Promise.all(executionPromises);
-
-      // Yield any sub-events emitted by tools during execution (e.g. Claude Code sub-tools)
-      // (Only populated when onLiveEvent is NOT provided — live events are sent directly)
-      for (const subEvent of pendingSubEvents) {
-        yield subEvent;
-      }
-      pendingSubEvents.length = 0;
-
-      // Emit results and build conversation messages in order
-      for (const { pc, toolResult, durationMs } of results) {
-        const record: ToolCallRecord = {
-          id: pc.id,
-          tool: pc.name,
-          args: pc.args,
-          output: toolResult.output,
-          error: toolResult.error,
-          durationMs,
-        };
-        toolCallHistory.push(record);
-
-        if (toolResult.usage) {
-          toolUsageRecords.push(toolResult.usage);
-        }
-
-        yield {
-          type: 'tool_result',
-          id: pc.id,
-          tool: pc.name,
-          output: toolResult.output,
-          error: toolResult.error,
-          artifacts: toolResult.artifacts,
-          usage: toolResult.usage,
-        };
-
-        const toolOutput = toolResult.error
-          ? `Error: ${toolResult.error}\n${toolResult.output}`.trim()
-          : toolResult.output;
-
+    if (toolDefs.length > 0) {
+      // Circuit breaker: inject a warning and force a final summary response
+      if (iteration > circuitBreaker) {
+        console.warn(`[agent-loop] Circuit breaker tripped at iteration ${iteration} — forcing final response`);
         conversationMessages.push({
-          role: 'tool',
-          content: toolOutput,
-          tool_call_id: pc.id,
+          role: 'user',
+          content: `[SYSTEM: Safety limit of ${circuitBreaker} steps reached. Do not call any more tools. Summarize exactly what you have completed so far and clearly state what still needs to be done so the user can continue.]`,
         });
-      }
+        // Fall through to streaming final response below
+      } else {
+        let result: LLMCompletionResult;
+        try {
+          result = await provider.complete(conversationMessages, toolDefs, config);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          yield { type: 'error', message: `LLM call failed: ${message}` };
+          return;
+        }
 
-      // Continue loop — LLM will see tool results and decide next action
-      continue;
+        if (result.usage) {
+          accumulatedUsage.promptTokens += result.usage.promptTokens;
+          accumulatedUsage.completionTokens += result.usage.completionTokens;
+          accumulatedUsage.totalTokens += result.usage.totalTokens;
+        }
+
+        if (result.thinkingContent) {
+          yield { type: 'thinking', text: result.thinkingContent };
+        }
+
+        // No tool calls — natural completion
+        if (!result.toolCalls || result.toolCalls.length === 0) {
+          fullContent = result.content;
+          if (result.content) {
+            yield { type: 'text_delta', text: result.content };
+          }
+          break;
+        }
+
+        // Process tool calls
+        const assistantMessage: LLMMessage = {
+          role: 'assistant',
+          content: result.content || '',
+          tool_calls: result.toolCalls,
+        };
+        conversationMessages.push(assistantMessage);
+
+        // Parse all tool calls upfront
+        const parsedCalls = result.toolCalls.map((tc) => {
+          let args: Record<string, unknown> = {};
+          try { args = JSON.parse(tc.function.arguments); } catch { console.warn(`[agent-loop] Failed to parse tool args for ${tc.function.name}:`, tc.function.arguments); args = { _raw: tc.function.arguments }; }
+          return { toolCall: tc, name: tc.function.name, args, id: tc.id };
+        });
+
+        // Emit all tool_call events immediately
+        for (const pc of parsedCalls) {
+          yield { type: 'tool_call', id: pc.id, tool: pc.name, args: pc.args };
+        }
+
+        // Execute tools in parallel (isolated — one failure won't kill others)
+        const executionPromises = parsedCalls.map(async (pc) => {
+          const startTime = Date.now();
+          const toolResult = await toolRegistry.execute(pc.name, pc.args, context);
+          const durationMs = Date.now() - startTime;
+          // toolRegistry.execute never throws — errors are returned as toolResult.error
+          if (toolResult.error) {
+            void storage.logToolError({
+              toolName: pc.name,
+              error: toolResult.error,
+              args: sanitizeArgs(pc.args),
+              conversationId: context.conversationId ?? null,
+            }).catch((e: unknown) => console.warn('[agent-loop] Failed to persist tool error:', e));
+          }
+          return { pc, toolResult, durationMs };
+        });
+
+        const results = await Promise.all(executionPromises);
+
+        // Yield any sub-events emitted by tools during execution (e.g. Claude Code sub-tools)
+        // (Only populated when onLiveEvent is NOT provided — live events are sent directly)
+        for (const subEvent of pendingSubEvents) {
+          yield subEvent;
+        }
+        pendingSubEvents.length = 0;
+
+        // Emit results and build conversation messages in order
+        for (const { pc, toolResult, durationMs } of results) {
+          const record: ToolCallRecord = {
+            id: pc.id,
+            tool: pc.name,
+            args: pc.args,
+            output: toolResult.output,
+            error: toolResult.error,
+            durationMs,
+          };
+          toolCallHistory.push(record);
+
+          if (toolResult.usage) {
+            toolUsageRecords.push(toolResult.usage);
+          }
+
+          yield {
+            type: 'tool_result',
+            id: pc.id,
+            tool: pc.name,
+            output: toolResult.output,
+            error: toolResult.error,
+            artifacts: toolResult.artifacts,
+            usage: toolResult.usage,
+          };
+
+          const toolOutput = toolResult.error
+            ? `Error: ${toolResult.error}\n${toolResult.output}`.trim()
+            : toolResult.output;
+
+          conversationMessages.push({
+            role: 'tool',
+            content: toolOutput,
+            tool_call_id: pc.id,
+          });
+        }
+
+        // Continue loop — LLM will see tool results and decide next action
+        continue;
+      }
     }
 
-    // Last iteration or no tools: stream the final response
+    // No tools, or circuit breaker tripped: stream the final response
     try {
       for await (const delta of provider.stream(conversationMessages, config)) {
         if (delta.thinking) {
@@ -248,15 +263,6 @@ export async function* runAgentLoop(
       return;
     }
     break;
-  }
-
-  // Signal if we exhausted all iterations without natural completion
-  if (toolCallHistory.length >= config.maxIterations - 1) {
-    yield {
-      type: 'agent_status',
-      iteration: config.maxIterations,
-      maxIterations: config.maxIterations,
-    };
   }
 
   yield {

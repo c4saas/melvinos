@@ -878,7 +878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     for await (const event of runAgentLoop(
       {
         model,
-        maxIterations: 50,
+        maxIterations: 500,
         userId: user.id,
         conversationId: chatId,
         temperature: getModelTemperature(model),
@@ -3479,7 +3479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for await (const event of runAgentLoop(
             {
               model: prepared.model,
-              maxIterations: thorMode ? 100 : (agentConf?.maxIterations ?? 50),
+              maxIterations: thorMode ? 1000 : (agentConf?.maxIterations ?? 500),
               userId: prepared.userId,
               conversationId: prepared.chatId,
               temperature: thorMode ? 1.0 : (agentConf?.temperature ?? getModelTemperature(prepared.model)),
