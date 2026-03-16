@@ -338,17 +338,17 @@ export const outputTemplateSectionSchema = z.object({
     .string()
     .trim()
     .min(1, 'Section key is required')
-    .max(60, 'Section key must be 60 characters or fewer')
+    .max(100, 'Section key must be 100 characters or fewer')
     .regex(/^[a-z0-9_\-]+$/i, 'Section key must be alphanumeric and may include dashes or underscores'),
   title: z
     .string()
     .trim()
     .min(1, 'Section title is required')
-    .max(120, 'Section title must be 120 characters or fewer'),
+    .max(200, 'Section title must be 200 characters or fewer'),
   description: z
     .string()
     .trim()
-    .max(200, 'Section description must be 200 characters or fewer')
+    .max(2000, 'Section description must be 2000 characters or fewer')
     .optional()
     .nullable(),
 });
