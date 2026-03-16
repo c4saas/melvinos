@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import WebSocket from 'ws';
 
-import { getEnv } from '../apps/web/src/lib/env.ts';
+import { getEnv } from './voice-env.ts';
 
 export interface ClauseInput {
   id?: string;

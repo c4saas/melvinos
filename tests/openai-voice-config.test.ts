@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const envModule = await import('../apps/web/src/lib/env.ts');
+const envModule = await import('../server/voice-env.ts');
 const resetEnvCache = envModule.__resetEnvCacheForTesting;
 
 const ENV_KEYS = [
