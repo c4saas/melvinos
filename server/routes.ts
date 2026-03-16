@@ -5819,7 +5819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const region = recall.region || 'us-west-2';
           const service = new RecallService(recall.apiKey, region);
 
-          await logToMelvin(`⏳ **Processing meeting:** ${title}\nBot ID: \`${bot.id}\` — fetching transcript...`);
+          await logToMelvin(`⏳ **Processing meeting:** ${title}\nBot ID: \`${bot.id}\` — fetching transcript (may take up to 2 min while Recall processes the recording)...`);
 
           // Fetch transcript
           let transcriptText = '';
@@ -5912,17 +5912,36 @@ Upcoming meetings, follow-ups, or deadlines mentioned. Write "None" if none.`;
             };
           }
 
-          if (bot.meeting_url) {
-            notionBody.properties.Transcript = { url: bot.meeting_url };
+          // Build page body: full summary + full transcript (no 2000-char property limit)
+          const pageBlocks: any[] = [];
+
+          if (meetingSummary) {
+            // Split summary into 2000-char chunks (Notion rich_text block limit)
+            for (let i = 0; i < meetingSummary.length; i += 2000) {
+              pageBlocks.push({
+                object: 'block', type: 'paragraph',
+                paragraph: { rich_text: [{ type: 'text', text: { content: meetingSummary.slice(i, i + 2000) } }] },
+              });
+            }
           }
 
-          // Add full summary as page body content (not just property — avoids 2000 char limit)
-          if (meetingSummary.length > 2000) {
-            notionBody.children = [{
-              object: 'block',
-              type: 'paragraph',
-              paragraph: { rich_text: [{ type: 'text', text: { content: meetingSummary.slice(0, 2000) } }] }
-            }];
+          if (transcriptText) {
+            pageBlocks.push({
+              object: 'block', type: 'heading_2',
+              heading_2: { rich_text: [{ type: 'text', text: { content: 'Full Transcript' } }] },
+            });
+            // Split transcript into 2000-char chunks
+            for (let i = 0; i < transcriptText.length; i += 2000) {
+              pageBlocks.push({
+                object: 'block', type: 'paragraph',
+                paragraph: { rich_text: [{ type: 'text', text: { content: transcriptText.slice(i, i + 2000) } }] },
+              });
+            }
+          }
+
+          // Notion limits children to 100 blocks per request
+          if (pageBlocks.length > 0) {
+            notionBody.children = pageBlocks.slice(0, 100);
           }
 
           const notionResp = await fetch('https://api.notion.com/v1/pages', {

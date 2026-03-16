@@ -143,22 +143,39 @@ export class RecallService {
   /** Get transcript for a bot.
    *  The legacy /bot/{id}/transcript/ endpoint is deprecated (HTTP 400).
    *  New approach: fetch bot detail → recording media_shortcuts.transcript.download_url → download content.
+   *
+   *  Recall processes transcripts asynchronously after bot.done fires. Poll with retries
+   *  to wait for the transcript download URL to become available.
    */
-  async getBotTranscript(botId: string): Promise<RecallTranscriptEntry[]> {
-    const bot = await this.getBot(botId);
-    const recordings = (bot as any).recordings ?? [];
+  async getBotTranscript(botId: string, opts?: { retries?: number; retryDelayMs?: number }): Promise<RecallTranscriptEntry[]> {
+    const maxRetries = opts?.retries ?? 6;
+    const delayMs = opts?.retryDelayMs ?? 20000; // 20 seconds between retries (up to ~2 min total)
 
-    for (const recording of recordings) {
-      const transcriptShortcut = recording?.media_shortcuts?.transcript;
-      const downloadUrl = transcriptShortcut?.data?.download_url;
-      if (downloadUrl) {
-        const res = await fetch(downloadUrl);
-        if (!res.ok) throw new Error(`Failed to download transcript: ${res.status}`);
-        return res.json();
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (attempt > 0) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+
+      const bot = await this.getBot(botId);
+      const recordings = (bot as any).recordings ?? [];
+
+      for (const recording of recordings) {
+        const transcriptShortcut = recording?.media_shortcuts?.transcript;
+        const downloadUrl = transcriptShortcut?.data?.download_url;
+        if (downloadUrl) {
+          const res = await fetch(downloadUrl);
+          if (!res.ok) throw new Error(`Failed to download transcript: ${res.status}`);
+          return res.json();
+        }
+      }
+
+      // Transcript not ready yet — retry if attempts remain
+      if (attempt < maxRetries) {
+        console.log(`[recall] Transcript not ready for bot ${botId} (attempt ${attempt + 1}/${maxRetries + 1}) — retrying in ${delayMs / 1000}s`);
       }
     }
 
-    return []; // Bot exists but transcript not ready yet
+    return []; // Transcript never became available
   }
 
   /** Extract unique participants from a bot's transcript */
