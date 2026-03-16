@@ -336,7 +336,7 @@ export default function SSHServersPage() {
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>Once configured, ask {agentName} to run commands on your server using natural language:</p>
           <ul className="list-disc pl-5 space-y-1 text-xs">
-            <li><em>"Check disk space on Hostinger"</em></li>
+            <li><em>"Check disk space on Production"</em></li>
             <li><em>"Restart the nginx service on Production"</em></li>
             <li><em>"Show me the last 50 lines of /var/log/app.log on Staging"</em></li>
           </ul>
@@ -363,7 +363,7 @@ export default function SSHServersPage() {
               <div className="col-span-2 space-y-1.5">
                 <Label>Label</Label>
                 <Input
-                  placeholder="Hostinger, Production…"
+                  placeholder="Production, Staging…"
                   value={form.label}
                   onChange={(e) => setForm({ ...form, label: e.target.value })}
                 />

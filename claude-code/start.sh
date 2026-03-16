@@ -9,7 +9,7 @@ mkdir -p /run/sshd
 mkdir -p /workspace /home/claude/workspace
 chown claude:claude /home/claude/workspace 2>/dev/null || true
 
-# Copy SSH keys from root to claude user so the relay can reach remote hosts (e.g. Hostinger)
+# Copy SSH keys from root to claude user so the relay can reach remote hosts
 if [ -d /root/.ssh ] && [ "$(ls -A /root/.ssh 2>/dev/null)" ]; then
   mkdir -p /home/claude/.ssh
   cp -f /root/.ssh/* /home/claude/.ssh/ 2>/dev/null || true
