@@ -80,6 +80,7 @@ docker compose build --pull
 docker compose up -d
 
 step "5 / 6  Wait for services to become healthy"
+HOST_PORT=$(grep '^HOST_PORT=' .env | cut -d= -f2 || echo 3001)
 log "Waiting for PostgreSQL to be ready..."
 for i in $(seq 1 30); do
   if docker compose exec -T postgres pg_isready -U melvinos -d melvinos &>/dev/null; then
@@ -105,7 +106,6 @@ for i in $(seq 1 30); do
 done
 
 step "6 / 6  Done"
-HOST_PORT=$(grep '^HOST_PORT=' .env | cut -d= -f2 || echo 3001)
 echo ""
 echo -e "  ${GREEN}MelvinOS is running!${NC}"
 echo ""
