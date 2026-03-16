@@ -1213,52 +1213,6 @@ export function ChatInput({
             <Paperclip className="h-5 w-5" />
           </Button>
 
-          {/* Output Template picker */}
-          {outputTemplates.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant={selectedOutputTemplateId ? 'default' : 'outline'}
-                  size="sm"
-                  className={cn(
-                    'flex-shrink-0 gap-1 px-2 transition-colors h-11 sm:h-10 sm:px-2.5 sm:gap-1.5',
-                    selectedOutputTemplateId
-                      ? 'bg-teal-900 text-teal-200 hover:bg-teal-800 border-teal-500/50'
-                      : ''
-                  )}
-                  data-testid="toggle-output-template"
-                  aria-label="Output template"
-                  title={selectedOutputTemplate ? `Template: ${selectedOutputTemplate.name}` : 'Set output template'}
-                >
-                  <LayoutTemplate className={cn('h-4 w-4', selectedOutputTemplateId && 'fill-current opacity-80')} />
-                  <span className="hidden text-xs font-medium sm:inline">
-                    {selectedOutputTemplate ? selectedOutputTemplate.name : 'Format'}
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel className="text-xs text-muted-foreground">Output format</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setSelectedOutputTemplateId(null)}
-                  className={cn('text-sm', !selectedOutputTemplateId && 'font-medium text-primary')}
-                >
-                  No template
-                </DropdownMenuItem>
-                {outputTemplates.map((template) => (
-                  <DropdownMenuItem
-                    key={template.id}
-                    onClick={() => setSelectedOutputTemplateId(template.id)}
-                    className={cn('flex flex-col items-start gap-0.5 text-sm', selectedOutputTemplateId === template.id && 'font-medium text-primary')}
-                    data-testid={`output-template-${template.id}`}
-                  >
-                    <span>{template.name}</span>
-                    <span className="text-[11px] text-muted-foreground">{formatOutputTemplateCategory(template.category)}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
 
           {/* Thor Mode toggle */}
           <Button

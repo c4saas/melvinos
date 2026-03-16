@@ -829,7 +829,7 @@ export const defaultPlatformSettings: z.infer<typeof platformSettingsDataSchema>
     anthropic: {
       enabled: true,
       defaultApiKey: null,
-      allowedModels: ['claude-sonnet-4-6', 'claude-opus-4-6'],
+      allowedModels: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001'],
       dailyRequestLimit: null,
     },
     groq: {
@@ -1632,6 +1632,14 @@ export const AI_MODELS: AIModel[] = [
     description: 'Claude Opus 4.6 — most powerful Claude model for highly complex tasks',
     provider: 'Anthropic',
     capabilities: ['chat', 'vision', 'search', 'thinking', 'code', 'tools'],
+    maxTokens: 200000,
+  },
+  {
+    id: 'claude-haiku-4-5-20251001',
+    name: 'Claude Haiku 4.5',
+    description: 'Claude Haiku 4.5 — fastest and most compact Claude model for lightweight tasks',
+    provider: 'Anthropic',
+    capabilities: ['chat', 'vision', 'code', 'tools'],
     maxTokens: 200000,
   },
 

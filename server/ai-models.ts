@@ -85,6 +85,20 @@ export const MODEL_CONFIG: Record<string, ModelConfig> = {
     supportsCodeInterpreter: true,
   },
 
+  'claude-haiku-4-5-20251001': {
+    id: 'claude-haiku-4-5-20251001',
+    apiModel: 'claude-haiku-4-5-20251001',
+    provider: 'anthropic',
+    apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+    maxTokens: 200000,
+    supportsFunctions: true,
+    supportsVision: true,
+    supportsStreaming: true,
+    supportsWebSearch: false,
+    supportsThinking: false,
+    supportsCodeInterpreter: false,
+  },
+
   // Groq Models
   'compound': {
     id: 'compound',

@@ -506,12 +506,12 @@ function SectionTools() {
       <Card>
         <CardHeader><CardTitle className="text-base">GoHighLevel (CRM)</CardTitle></CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          <p className="mb-2">Two GHL accounts are connected via MCP, each with 36 tools covering contacts, opportunities, pipelines, calendars, conversations, workflows, invoices, and more.</p>
+          <p className="mb-2">Connect one or more GHL sub-accounts via MCP. Each account exposes 36+ tools covering contacts, opportunities, pipelines, calendars, conversations, workflows, invoices, and more.</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><strong>Primary Account - HighLevel</strong> — <em>default account.</em> Used automatically unless you say otherwise.</li>
-            <li><strong>Secondary Account - HighLevel</strong> — only used when you explicitly mention the secondary account.</li>
+            <li><strong>Default account</strong> — used automatically unless you specify otherwise.</li>
+            <li><strong>Additional accounts</strong> — specify the account name in your message to route to a specific location.</li>
           </ul>
-          <p className="mt-2">You never need to specify the account for primary operations — {agentName} uses it by default.</p>
+          <p className="mt-2">Always include the correct <code className="text-xs bg-muted px-1 rounded">locationId</code> for the account you're targeting. Configure accounts in <em>Settings &gt; MCP Servers</em>.</p>
         </CardContent>
       </Card>
 
@@ -622,7 +622,7 @@ function SectionSubagents() {
           <p>Output Templates define structured formatting rules that {agentName} applies to its responses. Two ways to use them:</p>
           <ul className="list-disc list-inside space-y-2 ml-2">
             <li><strong>Per-subagent</strong> — Assign a template when creating or editing a subagent in <em>Settings &gt; Subagent Library</em>. The template is automatically applied to every response from that subagent.</li>
-            <li><strong>On-demand in conversation</strong> — Tell {agentName} <em>"use the morning brief template"</em> or <em>"format this as the daily email"</em>. {agentName} will use the <code className="text-xs bg-muted px-1 rounded">list_output_templates</code> tool to look up the matching template and apply it to its response.</li>
+            <li><strong>On-demand in conversation</strong> — Tell {agentName} <em>"use the morning brief template"</em> or <em>"format this as the daily email"</em>. {agentName} will look up the matching template and apply it automatically.</li>
           </ul>
           <p>Create and manage templates in <em>Settings &gt; {agentName} &gt; Output Templates</em>.</p>
         </CardContent>
@@ -728,10 +728,9 @@ function SectionIntegrations() {
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>Enables Calendar, Gmail, and Google Drive tools. Multiple Google accounts are supported — all read tools fan out across all connected accounts and label results by account.</p>
           <ol className="list-decimal list-inside space-y-1">
-            <li>Go to <em>Settings &gt; Integrations</em>.</li>
-            <li>Enter your Google OAuth <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
-            <li>Click <strong>Connect Google</strong> and authorize access.</li>
-            <li>Repeat to connect additional Google accounts (e.g. Work, Agency, Personal).</li>
+            <li>Go to <em>Settings &gt; Integrations &gt; Google</em> and enter your OAuth <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
+            <li>Open your <strong>Profile</strong> (avatar in top-right) → <strong>Account</strong> tab → <strong>Connected Accounts</strong>.</li>
+            <li>Click <strong>Connect</strong> next to Google and authorize access.</li>
           </ol>
           <p>Write tools (<code className="text-xs bg-muted px-1 rounded">gmail_send</code>, <code className="text-xs bg-muted px-1 rounded">calendar_create_event</code>, etc.) accept an optional <code className="text-xs bg-muted px-1 rounded">account</code> parameter to target a specific connected account.</p>
         </CardContent>
@@ -740,12 +739,12 @@ function SectionIntegrations() {
       <Card>
         <CardHeader><CardTitle className="text-base">GoHighLevel (CRM)</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>Two GHL sub-accounts are connected via MCP, each exposing 36+ tools for contacts, opportunities, pipelines, calendars, conversations, workflows, and invoices.</p>
+          <p>Connect one or more GHL sub-accounts via MCP. Each account exposes 36+ tools for contacts, opportunities, pipelines, calendars, conversations, workflows, and invoices.</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><strong>Primary Account - HighLevel</strong> — <em>default account.</em> {agentName} uses this automatically for all GHL requests.</li>
-            <li><strong>Secondary Account - HighLevel</strong> — only activated when you explicitly mention the secondary account.</li>
+            <li><strong>Default account</strong> — used automatically for all GHL requests.</li>
+            <li><strong>Additional accounts</strong> — mention the account name in your request to route to a specific location.</li>
           </ul>
-          <p>No need to specify the account for primary work. Just ask {agentName} to search contacts, update opportunities, etc.</p>
+          <p>Each account is a separate MCP server with its own location credentials. Add and manage accounts in <em>Settings &gt; MCP Servers</em>.</p>
         </CardContent>
       </Card>
 
@@ -823,9 +822,10 @@ function SectionHeartbeat() {
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <ol className="list-decimal list-inside space-y-2">
             <li>Go to <em>Settings &gt; Heartbeat</em> and enable the scheduler.</li>
-            <li>Set the interval (e.g., every 30 minutes) or a specific schedule.</li>
+            <li>Set the interval (e.g., every 15 or 30 minutes).</li>
             <li>Define scan items — what {agentName} should check each tick.</li>
-            <li>Choose a delivery channel — Telegram, email, or in-app.</li>
+            <li>Choose a delivery channel — <strong>In-App</strong> (Heartbeat conversation), <strong>Telegram</strong>, or <strong>SMS</strong> (via GoHighLevel MCP).</li>
+            <li>The model used defaults to the platform default model. Override it per-heartbeat if needed.</li>
           </ol>
         </CardContent>
       </Card>
@@ -872,12 +872,12 @@ function SectionMcp() {
       <Card>
         <CardHeader><CardTitle className="text-base">Connected Servers</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>Two MCP servers are currently active:</p>
+          <p>Each MCP server you add appears here with its connection status and available tools. Example setup for GoHighLevel:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><strong>Primary Account - HighLevel</strong> — GoHighLevel CRM for primary account (36+ tools)</li>
-            <li><strong>Secondary Account - HighLevel</strong> — GoHighLevel CRM for secondary account (36+ tools)</li>
+            <li><strong>Default account</strong> — your primary GHL location (36+ tools)</li>
+            <li><strong>Additional accounts</strong> — add one server per sub-account as needed</li>
           </ul>
-          <p>Tools from each server are prefixed with the server name, making it easy to target a specific account in your requests.</p>
+          <p>Tools from each server are namespaced by server ID. {agentName} automatically routes to the correct account based on context.</p>
         </CardContent>
       </Card>
     </div>

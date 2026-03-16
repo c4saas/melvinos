@@ -5625,9 +5625,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!recall?.enabled || !recall?.apiKey) return res.status(401).json({ error: 'Recall AI not configured' });
 
       const platform = (req.body?.platform as string) || 'google';
+      // Map UI platform name → Recall API platform name
+      const recallPlatform = platform === 'google' ? 'google_calendar' : platform;
 
       // Grab the user's stored OAuth tokens
-      const oauthTokens = await storage.getOAuthTokens(req.user.id, platform === 'google' ? 'google' : platform);
+      const oauthTokens = await storage.getOAuthToken(req.user.id, platform === 'google' ? 'google' : platform);
       if (!oauthTokens?.refreshToken) {
         return res.status(400).json({ error: `No ${platform} account connected. Connect Google via your profile first.` });
       }
@@ -5644,7 +5646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calendar V2: pass OAuth credentials directly — no intermediate access-token exchange
       const calendar = await service.createCalendar(
-        platform,
+        recallPlatform,
         oauthTokens.refreshToken,
         googleConfig.clientId,
         googleConfig.clientSecret,
@@ -5768,6 +5770,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const settings = await storage.getPlatformSettings();
       const recall = (settings?.data as any)?.integrations?.recall;
       const notionToken = (settings?.data as any)?.integrations?.notion?.integrationToken;
+      const anthropicKey = (settings?.data as any)?.apiProviders?.anthropic?.defaultApiKey || process.env.ANTHROPIC_API_KEY;
+      const recallDbId = (settings?.data as any)?.integrations?.recall?.meetingsDatabaseId;
 
       if (!recall?.enabled || !recall?.apiKey) {
         console.warn('[recall-webhook] Recall not configured, skipping');
@@ -5777,16 +5781,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.warn('[recall-webhook] Notion not configured, skipping');
         return res.json({ ok: true, skipped: 'notion_not_configured' });
       }
+      if (!recallDbId) {
+        console.warn('[recall-webhook] Recall meetings database ID not configured, skipping');
+        return res.json({ ok: true, skipped: 'recall_db_not_configured' });
+      }
 
       // Respond immediately, process async
       res.json({ ok: true });
 
       // Async processing
       (async () => {
+        const meetingDate = bot.join_at ? new Date(bot.join_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        const title = `Melvin — ${meetingDate}`;
+        let notionPageUrl = '';
+        let processingStatus = 'started';
+
+        // Helper: log to dedicated Recall Processing conversation in MelvinOS
+        async function logToMelvin(message: string) {
+          try {
+            const RECALL_CHAT_TITLE = '[Recall] Meeting Processing';
+            const users = await storage.listUsers();
+            const adminUser = users.find((u: any) => u.role === 'super_admin') ?? users[0];
+            if (!adminUser) return;
+            const chats = await storage.getUserChats(adminUser.id);
+            let chat = chats.find((c: any) => c.title === RECALL_CHAT_TITLE);
+            if (!chat) {
+              chat = await storage.createChat({ userId: adminUser.id, title: RECALL_CHAT_TITLE, model: 'claude-haiku-4-5-20251001' });
+            }
+            await storage.createMessage({ chatId: chat.id, role: 'assistant', content: message, metadata: { source: 'recall-webhook', automated: true } });
+          } catch (e) {
+            console.warn('[recall-webhook] Failed to log to Melvin chat:', e);
+          }
+        }
+
         try {
           const { RecallService } = await import('./recall-service');
           const region = recall.region || 'us-west-2';
           const service = new RecallService(recall.apiKey, region);
+
+          await logToMelvin(`⏳ **Processing meeting:** ${title}\nBot ID: \`${bot.id}\` — fetching transcript...`);
 
           // Fetch transcript
           let transcriptText = '';
@@ -5794,80 +5827,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const raw = await service.getBotTranscript(bot.id);
             transcriptText = service.formatTranscript(raw);
-            // Extract unique speakers
             const speakerSet = new Set<string>();
             for (const entry of raw) {
               if (entry?.participant?.name) speakerSet.add(entry.participant.name);
             }
             speakers = Array.from(speakerSet);
+            console.log(`[recall-webhook] Transcript fetched — ${transcriptText.length} chars, ${speakers.length} speakers`);
           } catch (e) {
             console.warn('[recall-webhook] Could not fetch transcript:', e);
+            await logToMelvin(`⚠️ **${title}** — transcript fetch failed: ${e instanceof Error ? e.message : String(e)}`);
           }
 
-          // Generate AI summary via Anthropic
-          let summary = '';
-          let actionItems = '';
-          let gist = '';
-          try {
-            const Anthropic = (await import('@anthropic-ai/sdk')).default;
-            const anthropicKey = process.env.ANTHROPIC_API_KEY;
-            if (anthropicKey && transcriptText) {
+          // Generate Meeting Summary using Meeting Summary output template
+          let meetingSummary = '';
+          if (anthropicKey && transcriptText) {
+            try {
+              const Anthropic = (await import('@anthropic-ai/sdk')).default;
               const client = new Anthropic({ apiKey: anthropicKey });
-              const summaryResp = await client.messages.create({
+              const prompt = `You are transcribing a meeting recording into structured notes. Apply the Meeting Summary template exactly.
+
+## Meeting Info
+- Title: ${title}
+- Date: ${meetingDate}
+- Attendees: ${speakers.join(', ') || 'Unknown'}
+- Bot: ${bot.bot_name ?? 'Recall Bot'}
+
+## Transcript
+${transcriptText.slice(0, 12000)}
+
+---
+
+Produce a structured meeting summary with these sections in order:
+
+# Meeting Info
+Title, date, attendees, duration (estimate from transcript if possible)
+
+# Executive Summary
+3-5 sentence overview of the meeting purpose and outcomes.
+
+# Key Discussion Points
+Main topics discussed with brief notes on each (bullet points).
+
+# Decisions Made
+Any decisions, approvals, or conclusions reached. Write "None" if none.
+
+# Action Items
+Tasks assigned during the meeting. Format: - [Owner] Task description (deadline if stated). Write "None" if none.
+
+# Next Steps
+Upcoming meetings, follow-ups, or deadlines mentioned. Write "None" if none.`;
+
+              const resp = await client.messages.create({
                 model: 'claude-haiku-4-5-20251001',
-                max_tokens: 1024,
-                messages: [{
-                  role: 'user',
-                  content: `You are a meeting summarizer. Given this transcript, produce:\n1. GIST: One sentence summary (max 20 words)\n2. OVERVIEW: 3-5 bullet points of key discussion points\n3. ACTION ITEMS: Bullet list of concrete next steps (if any)\n\nTranscript:\n${transcriptText.slice(0, 8000)}\n\nRespond in this exact format:\nGIST: ...\nOVERVIEW:\n- ...\nACTION ITEMS:\n- ...`
-                }]
+                max_tokens: 2048,
+                messages: [{ role: 'user', content: prompt }],
               });
-              const text = (summaryResp.content[0] as any)?.text ?? '';
-              const gistMatch = text.match(/GIST:\s*(.+)/);
-              gist = gistMatch?.[1]?.trim() ?? '';
-              const overviewMatch = text.match(/OVERVIEW:\n([\s\S]*?)(?=ACTION ITEMS:|$)/);
-              summary = overviewMatch?.[1]?.trim() ?? '';
-              const actionMatch = text.match(/ACTION ITEMS:\n([\s\S]*?)$/);
-              actionItems = actionMatch?.[1]?.trim() ?? '';
+              meetingSummary = (resp.content[0] as any)?.text?.trim() ?? '';
+              processingStatus = 'summary_generated';
+            } catch (e) {
+              console.warn('[recall-webhook] AI summary failed:', e);
+              meetingSummary = `Transcript available but AI summary failed: ${e instanceof Error ? e.message : String(e)}`;
             }
-          } catch (e) {
-            console.warn('[recall-webhook] AI summary failed:', e);
+          } else if (!transcriptText) {
+            meetingSummary = 'No transcript available — media may have expired or recording was too short.';
+          } else {
+            meetingSummary = 'API key not configured — transcript was captured but summary skipped.';
           }
 
-          // Build Notion page in the configured Recall Meetings DB
-          const RECALL_DB_ID = '3204fda2-5d9a-81b3-8aaf-e13f739da17d';
-          const meetingDate = bot.join_at ? new Date(bot.join_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-          const title = `${bot.bot_name ?? 'Recall Meeting'} — ${meetingDate}`;
-
+          // Build Notion page matching configured Recall Meetings DB columns
           const richText = (text: string) => [{ type: 'text', text: { content: text.slice(0, 2000) } }];
-
           const notionBody: any = {
-            parent: { database_id: RECALL_DB_ID },
+            parent: { database_id: recallDbId },
             properties: {
               Title: { title: [{ text: { content: title } }] },
               Date: { date: { start: meetingDate } },
               Host: { rich_text: richText(bot.bot_name ?? 'Recall Bot') },
-              Type: { rich_text: richText('Recall AI Recording') },
-              Gist: { rich_text: richText(gist || 'Meeting recorded via Recall AI') },
-              Overview: { rich_text: richText(summary) },
-              'Action Items': { rich_text: richText(actionItems) },
-              'New Summary': { rich_text: richText(summary) },
-              'Bullet Notes': { rich_text: richText(transcriptText.slice(0, 2000)) },
+              'Meeting Summary': { rich_text: richText(meetingSummary.slice(0, 2000)) },
             },
           };
 
-          // Add Attendees as multi_select
           if (speakers.length > 0) {
             notionBody.properties.Attendees = {
               multi_select: speakers.slice(0, 10).map((name: string) => ({ name: name.slice(0, 100) }))
             };
           }
 
-          // Add meeting URL as transcript link
           if (bot.meeting_url) {
             notionBody.properties.Transcript = { url: bot.meeting_url };
           }
 
-          await fetch('https://api.notion.com/v1/pages', {
+          // Add full summary as page body content (not just property — avoids 2000 char limit)
+          if (meetingSummary.length > 2000) {
+            notionBody.children = [{
+              object: 'block',
+              type: 'paragraph',
+              paragraph: { rich_text: [{ type: 'text', text: { content: meetingSummary.slice(0, 2000) } }] }
+            }];
+          }
+
+          const notionResp = await fetch('https://api.notion.com/v1/pages', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${notionToken}`,
@@ -5877,9 +5935,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             body: JSON.stringify(notionBody),
           });
 
-          console.log(`[recall-webhook] Created Notion entry for bot ${bot.id}: "${title}"`);
+          const notionResult = await notionResp.json() as any;
+          notionPageUrl = notionResult?.url ?? '';
+          processingStatus = notionResp.ok ? 'complete' : 'notion_error';
+
+          if (!notionResp.ok) {
+            const errMsg = notionResult?.message ?? JSON.stringify(notionResult);
+            console.error(`[recall-webhook] Notion error for bot ${bot.id}:`, errMsg);
+            await logToMelvin(`❌ **${title}** — Notion page creation failed.\nError: ${errMsg}\n\nMake sure the Recall meetings database is shared with the MelvinOS integration.`);
+          } else {
+            console.log(`[recall-webhook] ✓ Created Notion entry for bot ${bot.id}: "${title}"`);
+            await logToMelvin(`✅ **${title}**\nTranscript: ${transcriptText ? `${transcriptText.length} chars` : 'unavailable'} · Speakers: ${speakers.join(', ') || 'unknown'}\nNotion: ${notionPageUrl || 'created'}\n\n**Summary preview:**\n${meetingSummary.slice(0, 400)}${meetingSummary.length > 400 ? '...' : ''}`);
+          }
         } catch (err) {
           console.error('[recall-webhook] Async processing error:', err);
+          await logToMelvin(`❌ **${title}** — Processing failed: ${err instanceof Error ? err.message : String(err)}`);
         }
       })();
     } catch (error: any) {

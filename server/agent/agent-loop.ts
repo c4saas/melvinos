@@ -76,7 +76,8 @@ export async function* runAgentLoop(
   const toolUsageRecords: Array<{ model: string; promptTokens: number; completionTokens: number; totalTokens: number }> = [];
 
   const rawToolDefs = toolRegistry.toOpenAITools(enabledTools);
-  const toolDefs = modelSupportsFunctions(config.model) ? rawToolDefs : [];
+  // Anthropic enforces a 128-tool limit; slice to stay within it
+  const toolDefs = modelSupportsFunctions(config.model) ? rawToolDefs.slice(0, 128) : [];
 
   // Sub-events emitted by tools (e.g. Claude Code sub-tool calls).
   // When onLiveEvent is provided, events are sent immediately (real-time streaming).
