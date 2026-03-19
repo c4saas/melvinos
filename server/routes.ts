@@ -1180,7 +1180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   startCronScheduler(storage);
 
   // Seed default skills + trigger rules (idempotent)
-  seedDefaultSkills(storage).catch(() => {});
+  seedDefaultSkills(storage).catch((err) => console.error('[seed-skills] Failed:', err));
 
   // Use Local Auth middleware
   const requireAuth = isAuthenticated;
@@ -3609,7 +3609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
 
-          // Inject user timezone and location so all tools use correct time context
+          // Inject user timezone, location, and first name so all tools use correct context
           try {
             const userPrefs = await storage.getUserPreferences(prepared.userId);
             if ((userPrefs as any)?.timezone) {
@@ -3617,6 +3617,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (settingsData) settingsData.userTimezone = (userPrefs as any).timezone;
             }
             if ((userPrefs as any)?.location) extraToolContext.userLocation = (userPrefs as any).location;
+            const telegramUser = await storage.getUser(prepared.userId);
+            if (telegramUser?.firstName) extraToolContext.userFirstName = telegramUser.firstName;
           } catch { /* non-fatal */ }
 
           // Session-level Claude Code settings from chat metadata
