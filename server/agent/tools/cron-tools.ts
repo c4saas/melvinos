@@ -7,7 +7,7 @@ import { scheduleNextRun } from '../../cron-scheduler';
 
 const scheduleTaskSchema = z.object({
   name: z.string().describe('Short descriptive name for this scheduled task'),
-  cron: z.string().describe('5-field cron expression in server local time (e.g. "0 9 * * 1-5" = weekdays at 9am, "*/30 * * * *" = every 30 min)'),
+  cron: z.string().describe('5-field cron expression in the user\'s local timezone (e.g. "0 9 * * 1-5" = weekdays at 9am, "*/30 * * * *" = every 30 min)'),
   prompt: z.string().describe('The prompt/instruction to run on each trigger'),
   recurring: z.boolean().default(true).describe('true = repeat on every cron match; false = fire once then disable'),
   conversationId: z.string().optional().describe('Conversation ID to associate results with'),
@@ -15,12 +15,16 @@ const scheduleTaskSchema = z.object({
 
 export const scheduleTaskTool: ToolDefinition = {
   name: 'schedule_task',
-  description: 'Schedule a recurring or one-shot task using a cron expression. The prompt will be executed by Melvin at the specified time(s). Use standard 5-field cron: minute hour day-of-month month day-of-week.',
+  description: 'Schedule a recurring or one-shot task using a cron expression. The prompt is executed by Melvin at the specified time(s). ' +
+    'Use standard 5-field cron: minute hour day-of-month month day-of-week. ' +
+    'The cron expression is interpreted in the user\'s local timezone (from profile settings). ' +
+    'Common patterns: "0 9 * * 1-5" = weekdays 9 AM, "30 7 * * *" = daily 7:30 AM. ' +
+    'DO NOT schedule in UTC -- always use the user\'s local time.',
   inputSchema: {
     type: 'object',
     properties: {
       name: { type: 'string', description: 'Short name for this job' },
-      cron: { type: 'string', description: '5-field cron expression (e.g. "0 9 * * *" = 9am daily)' },
+      cron: { type: 'string', description: '5-field cron expression in the user\'s local timezone (e.g. "0 9 * * *" = 9am daily)' },
       prompt: { type: 'string', description: 'Prompt to execute at each trigger' },
       recurring: { type: 'boolean', description: 'true = repeating, false = one-shot', default: true },
       conversationId: { type: 'string', description: 'Conversation to attach to (optional)' },
@@ -38,10 +42,16 @@ export const scheduleTaskTool: ToolDefinition = {
     // Default conversationId to the current chat so cron results post back here
     const resolvedConversationId = conversationId ?? context.conversationId ?? null;
 
+    // Use user's timezone so cron times are interpreted in their local time
+    const timezone = (context as any).userTimezone as string | undefined
+      || (context.platformSettings as any)?.userTimezone as string | undefined
+      || 'UTC';
+
     const job = await storage.createCronJob({
       userId,
       name,
       cronExpression: cron,
+      timezone,
       prompt,
       recurring: recurring ?? true,
       enabled: true,
@@ -51,7 +61,9 @@ export const scheduleTaskTool: ToolDefinition = {
 
     await scheduleNextRun(storage, job.id);
     const updated = await storage.getCronJob(job.id);
-    const nextStr = updated?.nextRunAt ? new Date(updated.nextRunAt).toLocaleString() : 'unknown';
+    const nextStr = updated?.nextRunAt
+      ? new Date(updated.nextRunAt).toLocaleString('en-US', { timeZone: timezone, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+      : 'unknown';
 
     return {
       output: `Scheduled job "${name}" (id: ${job.id})\n- Cron: ${cron}\n- Recurring: ${recurring ?? true}\n- Next run: ${nextStr}`,
@@ -74,9 +86,11 @@ export const listScheduledTasksTool: ToolDefinition = {
 
     const lines = jobs.map(j => {
       const status = j.enabled ? 'active' : 'disabled';
-      const next = j.nextRunAt ? new Date(j.nextRunAt).toLocaleString() : 'N/A';
-      const last = j.lastRunAt ? new Date(j.lastRunAt).toLocaleString() : 'never';
-      return `- ${j.name} (${j.id}) — ${status}\n  Cron: ${j.cronExpression} | Next: ${next} | Last: ${last}`;
+      const tz = j.timezone ?? 'UTC';
+      const fmtLocal = (d: Date) => d.toLocaleString('en-US', { timeZone: tz });
+      const next = j.nextRunAt ? fmtLocal(new Date(j.nextRunAt)) : 'N/A';
+      const last = j.lastRunAt ? fmtLocal(new Date(j.lastRunAt)) : 'never';
+      return `- ${j.name} (${j.id}) — ${status}\n  Cron: ${j.cronExpression} (${tz}) | Next: ${next} | Last: ${last}`;
     });
 
     return { output: `Scheduled Tasks (${jobs.length})\n\n${lines.join('\n\n')}` };

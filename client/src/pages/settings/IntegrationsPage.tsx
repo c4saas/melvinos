@@ -14,6 +14,8 @@ import { getAdminRouteById } from '@shared/adminRoutes';
 import { apiRequest } from '@/lib/queryClient';
 import type { IntegrationSettings } from '@shared/schema';
 import { useBranding } from '@/hooks/useBranding';
+import { useUserTimezone } from '@/hooks/useUserTimezone';
+import { fmtDate, fmtDateTime, fmtTime } from '@/lib/dateUtils';
 
 // ── Integration card configs ──────────────────────────────────────────────────
 
@@ -209,8 +211,8 @@ function RecallPanel() {
               <div>
                 <span className="text-muted-foreground">Period</span>
                 <p className="font-medium">
-                  {new Date(String(usage.billing_period_start)).toLocaleDateString()} –{' '}
-                  {usage.billing_period_end ? new Date(String(usage.billing_period_end)).toLocaleDateString() : '…'}
+                  {fmtDate(String(usage.billing_period_start), userTz)} –{' '}
+                  {usage.billing_period_end ? fmtDate(String(usage.billing_period_end), userTz) : '…'}
                 </p>
               </div>
             )}
@@ -293,8 +295,8 @@ function RecallPanel() {
                     <div className="flex-1 min-w-0 space-y-0.5">
                       <p className="text-xs font-medium truncate">{evt.summary || 'Untitled Event'}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {evt.start_time ? new Date(evt.start_time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
-                        {evt.end_time ? ` – ${new Date(evt.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                        {evt.start_time ? fmtDateTime(evt.start_time, userTz) : '—'}
+                        {evt.end_time ? ` – ${fmtTime(evt.end_time, userTz)}` : ''}
                       </p>
                       {hasMeetingUrl && (
                         <p className="text-[10px] text-muted-foreground font-mono truncate">{evt.meeting_url}</p>
@@ -343,6 +345,7 @@ export default function IntegrationsPage() {
   const { draft, setDraft, isLoading, isSaving, handleSave, isError, refetch } = useAdminSettings();
   const { agentName } = useBranding();
   const { setHeader, resetHeader } = useAdminLayout();
+  const userTz = useUserTimezone();
   const route = getAdminRouteById('integrations');
   const [expandedIntegrations, setExpandedIntegrations] = useState<Set<string>>(new Set());
   const [addingGoogleApp, setAddingGoogleApp] = useState(false);
@@ -660,7 +663,7 @@ export default function IntegrationsPage() {
                       <div className="flex flex-col gap-0.5">
                         <span className="text-sm font-medium font-mono">{conn.userId}</span>
                         <span className="text-xs text-muted-foreground">
-                          Connected {conn.createdAt ? new Date(conn.createdAt).toLocaleDateString() : '—'}
+                          Connected {conn.createdAt ? fmtDate(conn.createdAt, userTz) : '—'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">

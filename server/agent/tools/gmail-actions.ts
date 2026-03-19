@@ -50,7 +50,11 @@ export const gmailReadTool: ToolDefinition = {
 export const gmailSendTool: ToolDefinition = {
   name: 'gmail_send',
   description:
-    'Send an email via Gmail. Can send a new email or reply to an existing thread. Use this when the user asks to send, reply, or compose an email.',
+    'Send an email via Gmail. Can send a new email or reply to an existing thread. ' +
+    'Use when the user asks to send, reply, compose, or forward an email. ' +
+    'Supports HTML body (set html=true for styled emails with inline CSS), CC/BCC, and threading. ' +
+    'DO NOT use for drafts. DO NOT use for reading emails (use gmail_read instead). ' +
+    'Example: gmail_send({ to: "user@example.com", subject: "Follow up", body: "<h2>Hello</h2><p>Details here</p>", html: true })',
   parameters: {
     type: 'object',
     properties: {
@@ -64,7 +68,11 @@ export const gmailSendTool: ToolDefinition = {
       },
       body: {
         type: 'string',
-        description: 'Email body text (plain text).',
+        description: 'Email body text. When html=true, include valid HTML with inline styles.',
+      },
+      html: {
+        type: 'boolean',
+        description: 'Set to true to send the body as an HTML email instead of plain text. Default: false.',
       },
       cc: {
         type: 'string',
@@ -96,6 +104,7 @@ export const gmailSendTool: ToolDefinition = {
     const body = String(args.body ?? '');
     const cc = args.cc ? String(args.cc) : undefined;
     const bcc = args.bcc ? String(args.bcc) : undefined;
+    const isHtml = Boolean(args.html);
     const replyToMessageId = args.reply_to_message_id ? String(args.reply_to_message_id) : undefined;
     const threadId = args.thread_id ? String(args.thread_id) : undefined;
     const accountLabel = args.account ? String(args.account) : undefined;
@@ -109,7 +118,7 @@ export const gmailSendTool: ToolDefinition = {
     const { label: fromAccount, service } = acc;
 
     try {
-      const result = await service.sendEmail(to, subject, body, { cc, bcc, replyToMessageId, threadId });
+      const result = await service.sendEmail(to, subject, body, { cc, bcc, replyToMessageId, threadId, html: isHtml });
       return {
         output: `Email sent successfully from **${fromAccount}**!\n\n` +
           `- **To**: ${to}\n` +

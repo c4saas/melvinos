@@ -43,7 +43,8 @@ export type AdminRouteGroupId =
   | 'melvinos'
   | 'subagents'
   | 'knowledge'
-  | 'tools-skills'
+  | 'tools'
+  | 'skills'
   | 'advanced'
   | 'monitoring';
 
@@ -121,6 +122,30 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
       },
     },
   },
+  'agent-tools': {
+    id: 'agent-tools',
+    label: 'Agent Tools',
+    path: '/settings/agent-tools',
+    requiredPermission: PERMISSIONS.TOOL_POLICIES_VIEW,
+    apis: [
+      { method: 'GET', path: '/api/admin/settings' },
+      { method: 'PUT', path: '/api/admin/settings' },
+      { method: 'GET', path: '/api/admin/available-tools' },
+    ],
+    groupId: 'tools',
+    pageHeader: {
+      title: 'Agent Tools',
+      description: 'Enable or disable individual tools available to the agent. Tools are atomic capabilities — what the agent can do.',
+    },
+    dashboardCards: {
+      system: {
+        title: 'Agent Tools',
+        description: 'Control which built-in tools and MCP server tools are available to the agent.',
+        actionLabel: 'Manage tools',
+        icon: 'Wrench',
+      },
+    },
+  },
   'tool-policies': {
     id: 'tool-policies',
     label: 'Tool Policies',
@@ -136,7 +161,7 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
       { method: 'POST', path: '/api/admin/releases/:id/publish' },
       { method: 'POST', path: '/api/admin/releases/:id/rollback' },
     ],
-    groupId: 'tools-skills',
+    groupId: 'tools',
     dashboardCards: {
       system: {
         title: 'Tool Policies',
@@ -270,10 +295,10 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
       { method: 'GET', path: '/api/admin/settings' },
       { method: 'PUT', path: '/api/admin/settings' },
     ],
-    groupId: 'tools-skills',
+    groupId: 'skills',
     pageHeader: {
       title: 'Skills',
-      description: 'Configure the skills the agent can use to help users — from coding to research to productivity tools.',
+      description: 'Skills combine tools with context, guidelines, and prompting to produce reliable behaviors. They define how the agent approaches tasks.',
     },
     dashboardCards: {
       system: {
@@ -293,7 +318,7 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
       { method: 'GET', path: '/api/admin/settings' },
       { method: 'PUT', path: '/api/admin/settings' },
     ],
-    groupId: 'tools-skills',
+    groupId: 'tools',
     pageHeader: {
       title: 'Trigger Rules',
       description: 'Map phrases to tools and skills for deterministic routing.',
@@ -439,7 +464,7 @@ const ADMIN_ROUTE_CATALOG: Record<string, AdminRouteDefinition> = {
       { method: 'PATCH', path: '/api/admin/mcp/servers/:id' },
       { method: 'DELETE', path: '/api/admin/mcp/servers/:id' },
     ],
-    groupId: 'tools-skills',
+    groupId: 'tools',
     pageHeader: {
       title: 'MCP Servers',
       description: 'Connect external tool servers using the Model Context Protocol to extend agent capabilities.',
@@ -494,11 +519,18 @@ export const ADMIN_ROUTE_GROUPS: readonly AdminRouteGroupDefinition[] = [
     routeIds: ['knowledge-base', 'memory', 'templates-projects'],
   },
   {
-    id: 'tools-skills',
-    label: 'Tools & Skills',
+    id: 'tools',
+    label: 'Tools',
     icon: 'Wrench',
     requiredPermission: PERMISSIONS.TOOL_POLICIES_VIEW,
-    routeIds: ['tool-policies', 'skills', 'trigger-rules', 'mcp-servers'],
+    routeIds: ['agent-tools', 'tool-policies', 'mcp-servers', 'trigger-rules'],
+  },
+  {
+    id: 'skills',
+    label: 'Skills',
+    icon: 'Zap',
+    requiredPermission: PERMISSIONS.API_ACCESS_VIEW,
+    routeIds: ['skills'],
   },
   {
     id: 'advanced',

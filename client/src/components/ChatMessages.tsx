@@ -24,6 +24,7 @@ import type {
 } from '@/hooks/useVoicePlaybackController';
 import { requestVoiceStream } from '@/lib/voice';
 import { useBranding } from '@/hooks/useBranding';
+import DOMPurify from 'dompurify';
 
 interface Message extends MessageType {
   // Extended interface for any additional frontend properties
@@ -993,7 +994,7 @@ const ChatMessages = forwardRef<ChatMessagesHandle, ChatMessagesProps>(({
   const [viewModes, setViewModes] = useState<Record<string, ViewMode>>({});
   const contentBottomPadding = Math.max(bottomOffset + 48, 160);
 
-  // Fetch user preferences for profile picture
+  // Fetch user preferences for profile picture + timezone
   const { data: userPreferences } = useQuery<{
     personalizationEnabled: boolean;
     customInstructions: string;
@@ -1003,16 +1004,19 @@ const ChatMessages = forwardRef<ChatMessagesHandle, ChatMessagesProps>(({
     profileImageUrl?: string;
     memories: string[];
     chatHistoryEnabled: boolean;
+    timezone?: string;
   }>({
     queryKey: ['/api/user/preferences'],
   });
+  const userTz = userPreferences?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const formatTime = (dateString: string | Date | null) => {
     if (!dateString) return '';
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    return date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const iso = typeof dateString === 'string' ? dateString : dateString.toISOString();
+    try {
+      return new Date(iso).toLocaleTimeString('en-US', { timeZone: userTz, hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
   };
 
   const registerMessageRef = (messageId: string) => (element: HTMLDivElement | null) => {
@@ -1381,7 +1385,12 @@ const ChatMessages = forwardRef<ChatMessagesHandle, ChatMessagesProps>(({
                   {viewMode === 'formatted' ? (
                     <div className="formatted-response sm:text-base">
                       {historyVoicePanel}
-                      {renderMessageSegments(segments, message.id, isUser)}
+                      {metadata?.outputTemplateFormat === 'html' && !isUser ? (
+                        <div
+                          className="prose prose-sm dark:prose-invert max-w-none"
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(body) }}
+                        />
+                      ) : renderMessageSegments(segments, message.id, isUser)}
 
                       {!isUser && sources.length > 0 && (
                         <div className="pt-1">

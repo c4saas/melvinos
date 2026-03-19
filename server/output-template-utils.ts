@@ -52,6 +52,8 @@ export function buildOutputTemplateInstruction(template: OutputTemplate): string
 
   const formatInstruction = template.format === 'json'
     ? `Return a single valid JSON object with keys: ${sections.map(section => `"${section.key}"`).join(', ')}. Do not include any commentary or markdown outside of the JSON.`
+    : template.format === 'html'
+    ? 'Return clean, well-structured HTML. Use semantic tags (<h2>, <h3>, <p>, <ul>, <li>, <table>) for each required section. Use inline styles for formatting (colors, spacing, font-weight). Do not include <html>, <head>, or <body> wrappers -- return only the inner content HTML. Do not include any markdown or commentary outside the HTML.'
     : 'Structure the response using Markdown headings for each required section above, presented in the same order.';
 
   return [
@@ -86,6 +88,15 @@ export function validateOutputTemplateContent(
         if (!hasValue) {
           missingSections.push(section.title);
         }
+      }
+    }
+  } else if (template.format === 'html') {
+    for (const section of sections) {
+      const label = escapeRegExp(section.title.trim());
+      const headingRegex = new RegExp(`<h[1-6][^>]*>\\s*${label}`, 'i');
+      const strongRegex = new RegExp(`<(?:strong|b)[^>]*>\\s*${label}`, 'i');
+      if (!headingRegex.test(content) && !strongRegex.test(content)) {
+        missingSections.push(section.title);
       }
     }
   } else {

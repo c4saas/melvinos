@@ -12,6 +12,7 @@ import { runAgentLoop, createFallbackAwareProvider } from '../agent';
 import { getDefaultModel, getModelTemperature } from '../ai-models';
 import { sendHeartbeatMessage } from '../telegram-bot';
 import { toolRegistry } from '../agent/tool-registry';
+import { buildTimezoneInstruction } from '../timezone-context';
 
 const HEARTBEAT_CHAT_TITLE = '[Heartbeat] Executive Scan';
 
@@ -43,8 +44,13 @@ export async function runHeartbeatCycle(
     });
   }
 
-  // 3. Build the heartbeat system prompt overlay
-  const heartbeatPrompt = buildHeartbeatPrompt(config);
+  // 3. Load user timezone + location for date/time grounding
+  const userPreferences = await storage.getUserPreferences(melvinUser.id);
+  const userTimezone = (userPreferences as any)?.timezone as string | undefined || 'America/Chicago';
+  const userLocation = (userPreferences as any)?.location as string | undefined || '';
+
+  // 3. Build the heartbeat system prompt overlay (with injected date/time)
+  const heartbeatPrompt = buildHeartbeatPrompt(config, userTimezone, userLocation);
 
   // 4. Persist the trigger message
   await storage.createMessage({
@@ -198,10 +204,12 @@ export async function runHeartbeatCycle(
   return finalText;
 }
 
-function buildHeartbeatPrompt(config: HeartbeatSettings): string {
+function buildHeartbeatPrompt(config: HeartbeatSettings, timezone = 'America/Chicago', location = ''): string {
   const enabledItems = config.scanItems.filter((i) => i.enabled);
   const lines: string[] = [];
 
+  lines.push(buildTimezoneInstruction(timezone, location || undefined));
+  lines.push('');
   lines.push('## Heartbeat Agent Protocol');
   lines.push('');
   lines.push('This is an automated keepalive tick. Your job has two phases — work through them in order:');
@@ -217,6 +225,14 @@ function buildHeartbeatPrompt(config: HeartbeatSettings): string {
   lines.push('If there is no active work to continue, or after completing Phase 1, run the configured checks below.');
   lines.push('Use your tools (web search, shell, memory, calendar, etc.) to gather real data — never guess.');
   lines.push('');
+  lines.push('### Self-Healing');
+  lines.push('If you detect a real, reproducible bug in the MelvinOS codebase (/opt/melvinos), you may propose a fix using the `propose_patch` tool.');
+  lines.push('Rules:');
+  lines.push('- Only propose patches for confirmed bugs you have diagnosed — not guesses or cosmetic changes.');
+  lines.push('- Read the relevant source files first to understand exactly what to change.');
+  lines.push('- Write a precise `claude_prompt` that Claude Code can execute to apply the fix correctly.');
+  lines.push('- Each patch goes to Austin for approval via SMS before anything is changed.');
+  lines.push('');
 
   if (config.constraints.length > 0) {
     lines.push('### Constraints');
@@ -228,7 +244,7 @@ function buildHeartbeatPrompt(config: HeartbeatSettings): string {
 
   if (enabledItems.length > 0) {
     lines.push('### Scan Checklist');
-    lines.push('Run these in order:');
+    lines.push('Run these in order. Only report on sections listed here — do NOT include results for any section not in this list, even if previous responses covered them:');
     lines.push('');
     for (let i = 0; i < enabledItems.length; i++) {
       const item = enabledItems[i];
@@ -238,10 +254,23 @@ function buildHeartbeatPrompt(config: HeartbeatSettings): string {
     }
   }
 
+  const isSms = config.deliveryChannel === 'sms';
+
   lines.push('### Output Format');
-  lines.push('Keep the response concise and plain-text only — NO markdown, NO asterisks, NO hashtags, NO bullet dashes.');
-  lines.push('For active work: start with "WORKING: [brief status]"');
-  lines.push('For scan results: use "SECTION:" labels followed by 1-2 sentences each.');
+  lines.push('Plain text only — NO markdown, NO asterisks, NO hashtags, NO bullet dashes.');
+  if (isSms) {
+    lines.push('');
+    lines.push('**SMS MODE — keep the ENTIRE response under 160 characters.**');
+    lines.push('Use exactly one of these formats:');
+    lines.push('- Active work in progress: "Working: [what you\'re doing]"');
+    lines.push('- Continuing from last tick: "Continuing: [brief status]"');
+    lines.push('- All checks done, nothing urgent: "Heartbeat OK"');
+    lines.push('- Something needs attention: "Alert: [one sentence]"');
+    lines.push('Do not enumerate sections. Do not add explanations. One line only.');
+  } else {
+    lines.push('For active work: start with "WORKING: [brief status]"');
+    lines.push('For scan results: use "SECTION:" labels followed by 1-2 sentences each.');
+  }
   lines.push('');
   lines.push('### NEXT TICK Directive (required — always the last line)');
   lines.push('End every response with a NEXT TICK directive that tells the scheduler when to run next.');
@@ -276,8 +305,11 @@ async function sendHeartbeatSms(config: HeartbeatSettings, text: string): Promis
     return;
   }
 
+  // Strip NEXT TICK directive (scheduler metadata, not useful in SMS)
+  const withoutNextTick = text.replace(/\n?NEXT TICK:.*$/i, '').trim();
+
   // Strip any residual markdown and truncate to SMS-friendly length
-  const plain = text
+  const plain = withoutNextTick
     .replace(/#{1,6}\s*/g, '')           // headings
     .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1') // bold/italic
     .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')   // underscore bold/italic
@@ -285,8 +317,8 @@ async function sendHeartbeatSms(config: HeartbeatSettings, text: string): Promis
     .replace(/^\s*[-*+]\s+/gm, '• ')     // bullets → •
     .replace(/\n{3,}/g, '\n\n')          // collapse excess newlines
     .trim();
-  const smsText = plain.length > 1500
-    ? plain.slice(0, 1497) + '...'
+  const smsText = plain.length > 320
+    ? plain.slice(0, 317) + '...'
     : plain;
 
   try {
@@ -303,6 +335,7 @@ async function sendHeartbeatSms(config: HeartbeatSettings, text: string): Promis
       userId: 'system',
       conversationId: null,
       model: '',
+      workspacePath: process.env.AGENT_WORKSPACE_PATH || '/app/workspace',
     });
 
     if (result.error) {

@@ -8,10 +8,12 @@ export function buildService(
   account: GoogleAccount,
   clientId: string,
   clientSecret: string,
+  userTimezone?: string,
 ): GoogleDriveService {
   const service = new GoogleDriveService(clientId, clientSecret, '');
   service.setTokens(account.accessToken, account.refreshToken);
   service.setTokenRefreshCallback(account.update);
+  if (userTimezone) service.userTimezone = userTimezone;
   return service;
 }
 
@@ -26,10 +28,13 @@ export function getGoogleServices(
   const clientSecret = context.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET;
   if (!clientId || !clientSecret) return [];
 
+  const userTimezone = (context.platformSettings as any)?.userTimezone as string | undefined
+    || (context as any).userTimezone as string | undefined;
+
   if (context.googleAccounts && context.googleAccounts.length > 0) {
     return context.googleAccounts.map(acc => ({
       label: acc.label,
-      service: buildService({ ...acc, clientId, clientSecret }, clientId, clientSecret),
+      service: buildService({ ...acc, clientId, clientSecret }, clientId, clientSecret, userTimezone),
     }));
   }
 
@@ -38,6 +43,7 @@ export function getGoogleServices(
   const service = new GoogleDriveService(clientId, clientSecret, '');
   service.setTokens(context.googleAccessToken, context.googleRefreshToken);
   if (context.updateGoogleTokens) service.setTokenRefreshCallback(context.updateGoogleTokens);
+  if (userTimezone) service.userTimezone = userTimezone;
   return [{ label: 'default', service }];
 }
 

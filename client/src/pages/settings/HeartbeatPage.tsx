@@ -20,6 +20,9 @@ import { AdminSettingsErrorState } from '@/components/admin';
 import { getAdminRouteById } from '@shared/adminRoutes';
 import { apiRequest } from '@/lib/queryClient';
 import { useBranding } from '@/hooks/useBranding';
+import { TIMEZONES } from '@/lib/timezones';
+import { useUserTimezone } from '@/hooks/useUserTimezone';
+import { fmtDateTime } from '@/lib/dateUtils';
 
 const INTERVAL_OPTIONS = [
   { value: '15', label: 'Every 15 minutes' },
@@ -32,24 +35,11 @@ const INTERVAL_OPTIONS = [
   { value: '1440', label: 'Every 24 hours' },
 ];
 
-const TIMEZONE_OPTIONS = [
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'US/Hawaii',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Australia/Sydney',
-  'UTC',
-];
 
 export default function HeartbeatPage() {
   const { draft, setDraft, isLoading, isSaving, handleSave, isError, refetch } = useAdminSettings();
   const { agentName } = useBranding();
+  const userTz = useUserTimezone();
   const { setHeader, resetHeader } = useAdminLayout();
   const { toast } = useToast();
   const route = getAdminRouteById('heartbeat');
@@ -317,9 +307,9 @@ export default function HeartbeatPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TIMEZONE_OPTIONS.map((tz) => (
-                    <SelectItem key={tz} value={tz}>
-                      {tz.replace(/_/g, ' ')}
+                  {TIMEZONES.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -596,7 +586,7 @@ export default function HeartbeatPage() {
                   Trigger a heartbeat scan right now to verify everything works.
                   {lastRun && (
                     <>
-                      {' '}Last run: {new Date(lastRun).toLocaleString()}.
+                      {' '}Last run: {fmtDateTime(lastRun, userTz)}.
                     </>
                   )}
                 </p>

@@ -14,6 +14,7 @@ import {
   Loader2,
   Building2,
   Terminal,
+  Sparkles,
 } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserTimezone } from '@/hooks/useUserTimezone';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -116,6 +118,7 @@ export function ChatSidebar({
   onSettingsTriggerHandled
 }: ChatSidebarProps) {
   const { ccActive } = useTheme();
+  const userTz = useUserTimezone();
   const [searchTerm, setSearchTerm] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [defaultSettingsTab, setDefaultSettingsTab] = useState<string | undefined>(undefined);
@@ -193,6 +196,19 @@ export function ChatSidebar({
     enabled: !!user,
   });
 
+  // Fetch today's routine for sidebar card
+  const { data: routineEntry } = useQuery<{
+    id: string;
+    date: string;
+    data: {
+      blocks: { key: string; name: string; time: string; checked: boolean }[];
+      nonNegotiables: { key: string; label: string; checked: boolean }[];
+    };
+  }>({
+    queryKey: ['/api/routine/today'],
+    enabled: !!user,
+    staleTime: 60000,
+  });
 
   // Create project mutation
   const createProjectMutation = useMutation({
@@ -588,13 +604,20 @@ export function ChatSidebar({
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (diffInHours < 24 * 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const tz = userTz;
+    try {
+      if (diffInHours < 24) {
+        return date.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+      } else if (diffInHours < 24 * 7) {
+        return date.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short' });
+      } else {
+        return date.toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric' });
+      }
+    } catch {
+      // Invalid timezone — still try with browser default rather than no-tz at all
+      if (diffInHours < 24) return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      if (diffInHours < 24 * 7) return date.toLocaleDateString('en-US', { weekday: 'short' });
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
   };
 
@@ -790,6 +813,45 @@ export function ChatSidebar({
           </div>
         </AccordionContent>
       </AccordionItem>
+
+      {/* Daily Success Routine card */}
+      {(() => {
+        const rd = routineEntry?.data;
+        const blocks = rd?.blocks ?? [];
+        const checklist = rd?.nonNegotiables ?? [];
+        const done = blocks.filter(b => b.checked).length + checklist.filter(n => n.checked).length;
+        const total = blocks.length + checklist.length;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        const nextBlock = blocks.find(b => !b.checked);
+        return (
+          <Link href="/routine">
+            <div className="rounded-2xl border border-sidebar-border bg-sidebar/60 px-4 py-3 cursor-pointer hover:bg-sidebar/80 transition-colors mb-1">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
+                <span className="text-sm font-semibold text-sidebar-foreground">Daily Routine</span>
+                <span className="ml-auto text-xs font-bold tabular-nums">{pct}%</span>
+              </div>
+              {nextBlock && (
+                <div className="mt-1.5 text-xs text-muted-foreground pl-6">
+                  Next: {nextBlock.name}
+                  <span className="ml-1 opacity-70">{nextBlock.time}</span>
+                </div>
+              )}
+              {!nextBlock && pct === 100 && (
+                <div className="mt-1.5 text-xs text-green-500 pl-6 font-medium">All blocks complete</div>
+              )}
+            </div>
+          </Link>
+        );
+      })()}
+
+      {/* Workflows link */}
+      <Link href="/workflows">
+        <div className="rounded-xl border border-sidebar-border/50 px-4 py-2 cursor-pointer hover:bg-sidebar/60 transition-colors mb-1 flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5 text-primary/60 shrink-0" />
+          <span className="text-xs font-medium text-muted-foreground hover:text-foreground">Workflows</span>
+        </div>
+      </Link>
 
       <AccordionItem value="projects" className="rounded-2xl border border-sidebar-border bg-sidebar/60 px-4">
         <AccordionTrigger className="px-0 text-sm font-semibold text-sidebar-foreground hover:no-underline">

@@ -407,6 +407,7 @@ export default function OutputTemplatesPage() {
                       <SelectContent>
                         <SelectItem value="markdown">Markdown</SelectItem>
                         <SelectItem value="json">JSON</SelectItem>
+                        <SelectItem value="html">HTML</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

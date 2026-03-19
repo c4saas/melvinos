@@ -17,7 +17,7 @@ import { calendarCreateEventTool, calendarUpdateEventTool, calendarDeleteEventTo
 import { recallSearchTool, recallListMeetingsTool } from './recall-search';
 import { recallCreateBotTool } from './recall-create-bot';
 import { notionSearchTool } from './notion-search';
-import { notionReadPageTool, notionCreatePageTool, notionUpdatePageTool } from './notion-crud';
+import { notionReadPageTool, notionCreatePageTool, notionUpdatePageTool, notionQueryDatabaseTool } from './notion-crud';
 import { videoGenerateTool } from './video-generate';
 import { driveSearchTool, driveReadTool, driveWriteTool } from './drive-tools';
 import { spawnTaskTool } from './spawn-task';
@@ -27,6 +27,8 @@ import { gammaCreateTool } from './gamma-create';
 import { scheduleTaskTool, listScheduledTasksTool, deleteScheduledTaskTool } from './cron-tools';
 import { sshExecuteTool } from './ssh-execute';
 import { listOutputTemplatesTool, setOutputTemplateStorage } from './list-output-templates';
+import { proposePatchTool } from './propose-patch';
+import { thinkTool } from './think';
 import type { IStorage } from '../../storage';
 
 let initialized = false;
@@ -66,6 +68,7 @@ export function registerAllTools(storage: IStorage): void {
   toolRegistry.register(notionReadPageTool);
   toolRegistry.register(notionCreatePageTool);
   toolRegistry.register(notionUpdatePageTool);
+  toolRegistry.register(notionQueryDatabaseTool);
   toolRegistry.register(videoGenerateTool);
   toolRegistry.register(driveSearchTool);
   toolRegistry.register(driveReadTool);
@@ -80,6 +83,8 @@ export function registerAllTools(storage: IStorage): void {
   toolRegistry.register(sshExecuteTool);
   toolRegistry.register(skillUpdateTool);
   toolRegistry.register(listOutputTemplatesTool);
+  toolRegistry.register(proposePatchTool);
+  toolRegistry.register(thinkTool);
 }
 
 export { toolRegistry };

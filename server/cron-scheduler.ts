@@ -10,8 +10,28 @@ let _storage: IStorage | null = null;
 let _timer: ReturnType<typeof setInterval> | null = null;
 let _running = false;
 
+/** Extract date parts (minute, hour, dom, month, dow) in a given IANA timezone. */
+function dateParts(d: Date, timezone: string): { min: number; h: number; dom: number; m: number; dw: number } {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', hour12: false,
+      weekday: 'short',
+    });
+    const parts = fmt.formatToParts(d);
+    const get = (type: string) => parseInt(parts.find(p => p.type === type)?.value ?? '0', 10);
+    const weekday = parts.find(p => p.type === 'weekday')?.value ?? 'Sun';
+    const dowMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return { min: get('minute'), h: get('hour') % 24, dom: get('day'), m: get('month'), dw: dowMap[weekday] ?? 0 };
+  } catch {
+    // Fallback to UTC if timezone is invalid
+    return { min: d.getUTCMinutes(), h: d.getUTCHours(), dom: d.getUTCDate(), m: d.getUTCMonth() + 1, dw: d.getUTCDay() };
+  }
+}
+
 /** Parse a 5-field cron expression and return the next fire Date after `from`. */
-function nextCronDate(expr: string, from: Date = new Date()): Date | null {
+function nextCronDate(expr: string, from: Date = new Date(), timezone = 'UTC'): Date | null {
   try {
     const parts = expr.trim().split(/\s+/);
     if (parts.length !== 5) return null;
@@ -42,27 +62,23 @@ function nextCronDate(expr: string, from: Date = new Date()): Date | null {
     const months = parseField(monExpr, 1, 12);
     const dows = parseField(dowExpr, 0, 6);
 
-    // Walk forward minute by minute (max 8 days)
+    // Walk forward minute by minute (max 8 days), evaluating in job's timezone
     const candidate = new Date(from.getTime() + 60_000); // at least 1 minute ahead
     candidate.setSeconds(0, 0);
 
     for (let i = 0; i < 60 * 24 * 8; i++) {
-      const m = candidate.getMonth() + 1; // 1-12
-      const d = candidate.getDate();
-      const dw = candidate.getDay(); // 0-6 Sun-Sat
-      const h = candidate.getHours();
-      const min = candidate.getMinutes();
+      const p = dateParts(candidate, timezone);
 
       if (
-        months.includes(m) &&
-        doms.includes(d) &&
-        dows.includes(dw) &&
-        hours.includes(h) &&
-        minutes.includes(min)
+        months.includes(p.m) &&
+        doms.includes(p.dom) &&
+        dows.includes(p.dw) &&
+        hours.includes(p.h) &&
+        minutes.includes(p.min)
       ) {
         return new Date(candidate);
       }
-      candidate.setMinutes(candidate.getMinutes() + 1);
+      candidate.setTime(candidate.getTime() + 60_000);
     }
     return null;
   } catch {
@@ -92,15 +108,27 @@ async function tick() {
   }
 }
 
-async function fireJob(job: CronJob) {
+export async function fireJob(job: CronJob) {
   if (!_storage) return;
   try {
-    const next = nextCronDate(job.cronExpression);
+    const next = nextCronDate(job.cronExpression, new Date(), job.timezone ?? 'UTC');
     if (job.recurring && next) {
       await _storage.updateCronJob(job.id, { lastRunAt: new Date(), nextRunAt: next });
     } else {
       // One-shot — disable after firing
       await _storage.updateCronJob(job.id, { lastRunAt: new Date(), enabled: false, nextRunAt: null });
+    }
+
+    // If this is the routine populator cron, use the populateRoutine function
+    if (job.name === 'Daily Success Routine - Populate') {
+      try {
+        const { populateRoutine } = await import('./routine-populator');
+        await populateRoutine(_storage, job.userId);
+        console.log(`[cron] routine populator fired for ${job.userId}`);
+        return;
+      } catch (err) {
+        console.error('[cron] routine populator failed, falling back to generic task:', err);
+      }
     }
 
     // Enqueue via the agent_autonomous handler (has model resolution + full tool context)
@@ -142,7 +170,7 @@ export function stopCronScheduler(): void {
 export async function scheduleNextRun(storage: IStorage, jobId: string): Promise<void> {
   const job = await storage.getCronJob(jobId);
   if (!job) return;
-  const next = nextCronDate(job.cronExpression);
+  const next = nextCronDate(job.cronExpression, new Date(), job.timezone ?? 'UTC');
   await storage.updateCronJob(jobId, { nextRunAt: next ?? undefined });
 }
 
@@ -151,7 +179,7 @@ async function initNextRuns(storage: IStorage): Promise<void> {
     const jobs = await storage.getEnabledCronJobs();
     for (const job of jobs) {
       if (!job.nextRunAt) {
-        const next = nextCronDate(job.cronExpression);
+        const next = nextCronDate(job.cronExpression, new Date(), job.timezone ?? 'UTC');
         if (next) await storage.updateCronJob(job.id, { nextRunAt: next });
       }
     }

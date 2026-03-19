@@ -6,7 +6,11 @@ import { hasNativeSearch, performNativeSearch } from './native-web-search';
 export const webSearchTool: ToolDefinition = {
   name: 'web_search',
   description:
-    'Search the web for current information. Use this when you need up-to-date data, recent events, or facts you are unsure about. Returns a summary with source citations.',
+    'Search the web for current information. Returns a summary with source citations. ' +
+    'Use for: current events, market data, company info, technical documentation, factual verification. ' +
+    'For comprehensive multi-source research, use deep_research instead. ' +
+    'For fetching a specific URL/page, use web_fetch instead. ' +
+    'Keep queries concise and specific -- "Austin TX weather today" not "what is the weather like".',
   parameters: {
     type: 'object',
     properties: {

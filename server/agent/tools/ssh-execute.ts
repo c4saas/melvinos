@@ -78,6 +78,7 @@ export const sshExecuteTool: ToolDefinition = {
         command,
       ];
 
+      console.log(`[audit] ssh.execute | server=${serverLabel} | user=${context.userId ?? 'agent'} | cmd=${command.slice(0, 100)}`);
       const { stdout, stderr } = await execFileAsync('ssh', sshArgs, { timeout: 30000 });
       const output = [stdout, stderr].filter(Boolean).join('\n').trim();
       return { output: output || '(command completed with no output)' };

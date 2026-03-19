@@ -45,8 +45,10 @@ import {
   cronJobs,
   toolErrorLogs,
   platformSettingsHistory,
+  dailyRoutineEntries,
+  patchProposals,
 } from "@shared/schema";
-import type { ToolErrorLog, InsertToolErrorLog } from "@shared/schema";
+import type { ToolErrorLog, InsertToolErrorLog, DailyRoutineEntry } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { nanoid } from "nanoid";
 import { db } from "../db";
@@ -59,6 +61,7 @@ import {
   InMemoryFileStorage,
 } from "./file-store";
 import { encryptSecret, decryptSecret } from "../security/secret-storage";
+import { encryptSettingsData, decryptSettingsData } from "../security/settings-encryption";
 
 export type StoredFile = FileRecord;
 
@@ -145,13 +148,24 @@ const normalizeProviderLimits = (data: PlatformSettingsData): void => {
 };
 
 const parsePlatformSettingsData = (input: unknown): PlatformSettingsData => {
-  const merged = mergeWithDefaultPlatformSettings(input ?? undefined);
+  // Decrypt sensitive fields after reading from DB
+  const decrypted = (input && typeof input === 'object')
+    ? decryptSettingsData(input as Record<string, any>)
+    : input;
+  const merged = mergeWithDefaultPlatformSettings(decrypted ?? undefined);
   normalizeProviderLimits(merged);
   return platformSettingsDataSchema.parse(structuredClone(merged));
 };
 
 const preparePlatformSettingsPayload = (data: PlatformSettingsData): PlatformSettingsData => {
-  return platformSettingsDataSchema.parse(structuredClone(data));
+  const validated = platformSettingsDataSchema.parse(structuredClone(data));
+  // Encrypt sensitive fields before writing to DB
+  try {
+    return encryptSettingsData(validated as Record<string, any>) as PlatformSettingsData;
+  } catch {
+    // If encryption key not configured, store plaintext (with warning logged by encryptSettingsData)
+    return validated;
+  }
 };
 
 export interface CreateSystemPromptOptions {
@@ -345,6 +359,17 @@ export interface IStorage {
   logToolError(data: InsertToolErrorLog): Promise<ToolErrorLog>;
   listToolErrors(limit?: number): Promise<ToolErrorLog[]>;
   clearToolErrors(): Promise<void>;
+
+  // Daily routine methods
+  getRoutineEntry(userId: string, date: string): Promise<DailyRoutineEntry | undefined>;
+  upsertRoutineEntry(userId: string, date: string, data: Record<string, unknown>): Promise<DailyRoutineEntry>;
+  updateRoutineData(userId: string, date: string, path: string[], value: unknown): Promise<DailyRoutineEntry | undefined>;
+
+  // Patch proposal methods
+  createPatchProposal(proposal: { code: string; title: string; description: string; claudePrompt: string; workdir?: string }): Promise<import('@shared/schema').PatchProposal>;
+  getPatchProposalByCode(code: string): Promise<import('@shared/schema').PatchProposal | undefined>;
+  updatePatchProposal(id: string, updates: Partial<import('@shared/schema').PatchProposal>): Promise<import('@shared/schema').PatchProposal | undefined>;
+  listPatchProposals(status?: string): Promise<import('@shared/schema').PatchProposal[]>;
 
 }
 
@@ -1935,6 +1960,19 @@ export class MemStorage implements IStorage {
   }
   async listToolErrors(): Promise<ToolErrorLog[]> { return []; }
   async clearToolErrors(): Promise<void> {}
+
+  // Daily routine stubs
+  async getRoutineEntry(): Promise<DailyRoutineEntry | undefined> { return undefined; }
+  async upsertRoutineEntry(userId: string, date: string, data: Record<string, unknown>): Promise<DailyRoutineEntry> {
+    return { id: randomUUID(), userId, date, data, createdAt: new Date(), updatedAt: new Date() } as DailyRoutineEntry;
+  }
+  async updateRoutineData(): Promise<DailyRoutineEntry | undefined> { return undefined; }
+  async createPatchProposal(p: { code: string; title: string; description: string; claudePrompt: string; workdir?: string }): Promise<import('@shared/schema').PatchProposal> {
+    return { id: randomUUID(), code: p.code, status: 'pending', title: p.title, description: p.description, claudePrompt: p.claudePrompt, workdir: p.workdir ?? '/opt/melvinos', proposedAt: new Date(), resolvedAt: null, appliedAt: null, applyOutput: null, error: null } as import('@shared/schema').PatchProposal;
+  }
+  async getPatchProposalByCode(): Promise<import('@shared/schema').PatchProposal | undefined> { return undefined; }
+  async updatePatchProposal(): Promise<import('@shared/schema').PatchProposal | undefined> { return undefined; }
+  async listPatchProposals(): Promise<import('@shared/schema').PatchProposal[]> { return []; }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3312,6 +3350,72 @@ export class DatabaseStorage implements IStorage {
 
   async clearToolErrors(): Promise<void> {
     await db.delete(toolErrorLogs);
+  }
+
+  // ── Daily Routine ──────────────────────────────────────────────────────────
+
+  async getRoutineEntry(userId: string, date: string): Promise<DailyRoutineEntry | undefined> {
+    const [entry] = await db.select().from(dailyRoutineEntries)
+      .where(and(eq(dailyRoutineEntries.userId, userId), eq(dailyRoutineEntries.date, date)))
+      .limit(1);
+    return entry;
+  }
+
+  async upsertRoutineEntry(userId: string, date: string, data: Record<string, unknown>): Promise<DailyRoutineEntry> {
+    const [entry] = await db.insert(dailyRoutineEntries)
+      .values({ userId, date, data })
+      .onConflictDoUpdate({
+        target: [dailyRoutineEntries.userId, dailyRoutineEntries.date],
+        set: { data, updatedAt: new Date() },
+      })
+      .returning();
+    return entry;
+  }
+
+  async updateRoutineData(userId: string, date: string, path: string[], value: unknown): Promise<DailyRoutineEntry | undefined> {
+    // Build JSONB path for partial update: data #> '{blocks,0,checked}' etc.
+    const jsonPath = `{${path.join(',')}}`;
+    const [updated] = await db.execute(sql`
+      UPDATE daily_routine_entries
+      SET data = jsonb_set(data, ${jsonPath}::text[], ${JSON.stringify(value)}::jsonb),
+          updated_at = NOW()
+      WHERE user_id = ${userId} AND date = ${date}
+      RETURNING *
+    `);
+    return updated as unknown as DailyRoutineEntry | undefined;
+  }
+
+  async createPatchProposal(p: { code: string; title: string; description: string; claudePrompt: string; workdir?: string }): Promise<import('@shared/schema').PatchProposal> {
+    const { patchProposals } = await import('@shared/schema');
+    const [created] = await db.insert(patchProposals).values({
+      code: p.code,
+      title: p.title,
+      description: p.description,
+      claudePrompt: p.claudePrompt,
+      workdir: p.workdir ?? '/opt/melvinos',
+      status: 'pending',
+    }).returning();
+    return created;
+  }
+
+  async getPatchProposalByCode(code: string): Promise<import('@shared/schema').PatchProposal | undefined> {
+    const { patchProposals } = await import('@shared/schema');
+    const [row] = await db.select().from(patchProposals).where(eq(patchProposals.code, code));
+    return row;
+  }
+
+  async updatePatchProposal(id: string, updates: Partial<import('@shared/schema').PatchProposal>): Promise<import('@shared/schema').PatchProposal | undefined> {
+    const { patchProposals } = await import('@shared/schema');
+    const [updated] = await db.update(patchProposals).set(updates).where(eq(patchProposals.id, id)).returning();
+    return updated;
+  }
+
+  async listPatchProposals(status?: string): Promise<import('@shared/schema').PatchProposal[]> {
+    const { patchProposals } = await import('@shared/schema');
+    if (status) {
+      return db.select().from(patchProposals).where(eq(patchProposals.status, status)).orderBy(desc(patchProposals.proposedAt));
+    }
+    return db.select().from(patchProposals).orderBy(desc(patchProposals.proposedAt));
   }
 }
 

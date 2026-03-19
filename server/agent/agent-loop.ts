@@ -76,8 +76,15 @@ export async function* runAgentLoop(
   const toolUsageRecords: Array<{ model: string; promptTokens: number; completionTokens: number; totalTokens: number }> = [];
 
   const rawToolDefs = toolRegistry.toOpenAITools(enabledTools);
-  // Anthropic enforces a 128-tool limit; slice to stay within it
-  const toolDefs = modelSupportsFunctions(config.model) ? rawToolDefs.slice(0, 128) : [];
+  // Anthropic enforces a 128-tool limit. Sort so built-in tools (no prefix) come before
+  // MCP tools (prefixed with server name + underscore) to avoid dropping core functionality.
+  const sorted = [...rawToolDefs].sort((a, b) => {
+    const aIsMcp = a.function.name.includes('_') && a.function.name.split('_').length > 2;
+    const bIsMcp = b.function.name.includes('_') && b.function.name.split('_').length > 2;
+    if (aIsMcp === bIsMcp) return 0;
+    return aIsMcp ? 1 : -1;
+  });
+  const toolDefs = modelSupportsFunctions(config.model) ? sorted.slice(0, 128) : [];
 
   // Sub-events emitted by tools (e.g. Claude Code sub-tool calls).
   // When onLiveEvent is provided, events are sent immediately (real-time streaming).
@@ -125,12 +132,52 @@ export async function* runAgentLoop(
         });
         // Fall through to streaming final response below
       } else {
+        // ── Context trimming: if conversation is very large, trim old tool results ──
+        // Keep last 3 tool result pairs; replace older ones with placeholder.
+        // Never trim memory tool results.
+        const estimatedChars = conversationMessages.reduce((s, m) => s + (typeof m.content === 'string' ? m.content.length : 0), 0);
+        if (estimatedChars > 480_000) { // ~120K tokens at 4 chars/token
+          let toolResultCount = 0;
+          // Count from end to find which tool results to keep
+          for (let i = conversationMessages.length - 1; i >= 0; i--) {
+            const m = conversationMessages[i];
+            if ((m.role as string) === 'tool') {
+              toolResultCount++;
+              if (toolResultCount > 3) {
+                // Don't trim memory tool results
+                const content = typeof m.content === 'string' ? m.content : '';
+                if (!content.includes('memory_save') && !content.includes('memory_search') && content.length > 200) {
+                  (m as any).content = '[Trimmed for context management]';
+                }
+              }
+            }
+          }
+        }
+
         let result: LLMCompletionResult;
-        try {
-          result = await provider.complete(conversationMessages, toolDefs, config);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          yield { type: 'error', message: `LLM call failed: ${message}` };
+        const MAX_LLM_RETRIES = 2;
+        let lastError = '';
+        for (let attempt = 0; attempt <= MAX_LLM_RETRIES; attempt++) {
+          try {
+            result = await provider.complete(conversationMessages, toolDefs, config);
+            break;
+          } catch (err) {
+            lastError = err instanceof Error ? err.message : String(err);
+            const isRetriable = lastError.includes('429') || lastError.includes('rate') ||
+              lastError.includes('overloaded') || lastError.includes('timeout') ||
+              lastError.includes('503') || lastError.includes('529');
+            if (isRetriable && attempt < MAX_LLM_RETRIES) {
+              const backoffMs = (attempt + 1) * 3000;
+              console.warn(`[agent] LLM call failed (attempt ${attempt + 1}/${MAX_LLM_RETRIES + 1}), retrying in ${backoffMs}ms: ${lastError}`);
+              await new Promise(r => setTimeout(r, backoffMs));
+              continue;
+            }
+            yield { type: 'error', message: `LLM call failed: ${lastError}` };
+            return;
+          }
+        }
+        if (!result!) {
+          yield { type: 'error', message: `LLM call failed after ${MAX_LLM_RETRIES + 1} attempts: ${lastError}` };
           return;
         }
 
@@ -180,9 +227,13 @@ export async function* runAgentLoop(
           const durationMs = Date.now() - startTime;
           // toolRegistry.execute never throws — errors are returned as toolResult.error
           if (toolResult.error) {
+            // Sanitize error messages to avoid logging secrets
+            const sanitizedError = toolResult.error
+              .replace(/(?:sk-|key-|pat-|pit-|ntn_|Bearer\s+)[a-zA-Z0-9_-]{10,}/g, '[REDACTED]')
+              .replace(/(?:password|secret|token)["']?\s*[:=]\s*["']?[^\s"',]{8,}/gi, '$1=[REDACTED]');
             void storage.logToolError({
               toolName: pc.name,
-              error: toolResult.error,
+              error: sanitizedError,
               args: sanitizeArgs(pc.args),
               conversationId: context.conversationId ?? null,
             }).catch((e: unknown) => console.warn('[agent-loop] Failed to persist tool error:', e));

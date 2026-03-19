@@ -73,7 +73,12 @@ export const memoryDeleteTool: ToolDefinition = {
 export const memorySaveTool: ToolDefinition = {
   name: 'memory_save',
   description:
-    'Save a piece of information to persistent memory. Use this to remember facts, preferences, decisions, or anything that should persist across conversations. Provide a short title and the content to remember.',
+    'Save a piece of information to persistent memory that persists across conversations. ' +
+    'Use for: user preferences ("prefers emails at 10 AM"), recurring patterns ("GHL requires locationId"), ' +
+    'project context ("Q2 campaign targets 500 leads"), or procedures ("deploy via docker compose build"). ' +
+    'Categories: "preference" (user likes/dislikes), "fact" (stable truths), "procedure" (how-to steps), "context" (project state). ' +
+    'DO NOT save ephemeral task details or information already in the conversation. ' +
+    'DO NOT re-save something already in memory -- use memory_search first to check.',
   parameters: {
     type: 'object',
     properties: {

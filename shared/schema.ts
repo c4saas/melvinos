@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, bigint, boolean, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, bigint, boolean, uniqueIndex, pgEnum, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { UsageSummaryModelBreakdown, UsageSummaryTotals } from "./usage";
@@ -332,7 +332,7 @@ export const templates = pgTable("templates", {
 });
 
 export const outputTemplateCategorySchema = z.enum(['how_to', 'executive_brief', 'json_report']);
-export const outputTemplateFormatSchema = z.enum(['markdown', 'json']);
+export const outputTemplateFormatSchema = z.enum(['markdown', 'json', 'html']);
 export const outputTemplateSectionSchema = z.object({
   key: z
     .string()
@@ -348,7 +348,7 @@ export const outputTemplateSectionSchema = z.object({
   description: z
     .string()
     .trim()
-    .max(2000, 'Section description must be 2000 characters or fewer')
+    .max(5000, 'Section description must be 5000 characters or fewer')
     .optional()
     .nullable(),
 });
@@ -1352,6 +1352,7 @@ export const cronJobs = pgTable("cron_jobs", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   cronExpression: text("cron_expression").notNull(),
+  timezone: varchar("timezone").default('UTC'),
   prompt: text("prompt").notNull(),
   enabled: boolean("enabled").notNull().default(true),
   recurring: boolean("recurring").notNull().default(true),
@@ -1406,6 +1407,30 @@ export const toolErrorLogs = pgTable("tool_error_logs", {
 export const insertToolErrorLogSchema = createInsertSchema(toolErrorLogs).omit({ id: true, createdAt: true });
 export type ToolErrorLog = typeof toolErrorLogs.$inferSelect;
 export type InsertToolErrorLog = z.infer<typeof insertToolErrorLogSchema>;
+
+// ── Patch Proposals ───────────────────────────────────────────────────────────
+
+export const patchProposals = pgTable("patch_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 8 }).notNull().unique(),
+  status: varchar("status").notNull().default('pending'), // pending | approved | rejected | applied | failed
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  claudePrompt: text("claude_prompt").notNull(),
+  workdir: varchar("workdir").notNull().default('/opt/melvinos'),
+  proposedAt: timestamp("proposed_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  appliedAt: timestamp("applied_at"),
+  applyOutput: text("apply_output"),
+  error: text("error"),
+}, (table) => [
+  index("patch_proposals_status_idx").on(table.status),
+  index("patch_proposals_code_idx").on(table.code),
+]);
+
+export const insertPatchProposalSchema = createInsertSchema(patchProposals).omit({ id: true, proposedAt: true, resolvedAt: true, appliedAt: true, applyOutput: true, error: true });
+export type PatchProposal = typeof patchProposals.$inferSelect;
+export type InsertPatchProposal = z.infer<typeof insertPatchProposalSchema>;
 
 export const insertUserSchema = createInsertSchema(users)
   .omit({ id: true, createdAt: true, updatedAt: true })
@@ -1718,6 +1743,22 @@ export const AI_MODELS: AIModel[] = [
     status: 'legacy',
   },
 ];
+
+// ── Daily Routine Entries ────────────────────────────────────────────────────
+
+export const dailyRoutineEntries = pgTable("daily_routine_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: date("date").notNull(),
+  data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("daily_routine_user_date_idx").on(table.userId, table.date),
+]);
+
+export type DailyRoutineEntry = typeof dailyRoutineEntries.$inferSelect;
+export type InsertDailyRoutineEntry = typeof dailyRoutineEntries.$inferInsert;
 
 export interface FeatureToggle {
   id: string;

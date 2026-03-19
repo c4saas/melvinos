@@ -71,6 +71,7 @@ import { attachCsrfToken, verifyCsrfToken } from "./security/csrf";
 import { generateCsrfToken } from "./security/secure-compare";
 import { getModelConfig, getModelTemperature, getDefaultModel, MODEL_CONFIG } from "./ai-models";
 import { assembleRequest } from "./prompt-engine";
+import { buildTimezoneInstruction } from "./timezone-context";
 import { registerAllTools, runAgentLoop, createLLMProvider, createFallbackAwareProvider, initMcpServers, getMcpServerStatus, reconnectServer, initTaskQueue, registerTaskHandler, listTasks, getTaskStatus, enqueueTask, cancelTask, toolRegistry } from "./agent";
 import type { AgentEvent, McpServerConfig } from "./agent";
 import { scheduleAutoMemory } from "./agent/auto-memory";
@@ -88,9 +89,12 @@ import type { TriggerRule } from "@shared/schema";
 import { invokeWebhookAssistant, type WebhookInvocationPayload } from "./webhook-assistant";
 import { generateStructuredChatTitle } from "./conversation-title";
 import { reconcileTelegramBot, getTelegramBotStatus } from "./telegram-bot";
+import { buildDefaultRoutineData } from "@shared/routine-defaults";
+import { audit } from "./security/audit-log";
 import { startHeartbeatScheduler, reconcileHeartbeatScheduler, runHeartbeatTick, getHeartbeatStatus } from "./heartbeat/scheduler";
 import { startCleanupScheduler } from "./cleanup-scheduler";
 import { startCronScheduler } from "./cron-scheduler";
+import { seedDefaultSkills } from "./seed-skills";
 
 const BYTES_PER_MB = 1024 * 1024;
 const REMOTE_CONTENT_BYTE_LIMIT = 2 * 1024 * 1024;
@@ -735,8 +739,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup Local Auth
   await setupAuth(app);
   app.use(attachCsrfToken);
+
+  // ── CSRF-exempt external webhooks (registered before verifyCsrfToken) ─────
+  app.post('/api/webhooks/recall', rateLimitMiddleware(30, 60_000, 'webhook'), (req, res, next) => {
+    // Handled later in the file — skip CSRF here by pre-registering path
+    next('route');
+  });
+  app.post('/api/webhooks/ghl-inbound', rateLimitMiddleware(60, 60_000, 'webhook'), async (req, res) => {
+    res.status(200).json({ ok: true }); // ACK immediately
+
+    try {
+      const body = req.body as any;
+      const messageText: string = (body?.body ?? body?.message ?? body?.text ?? '').trim().toUpperCase();
+
+      const approveMatch = messageText.match(/\bAPPROVE\s+([A-Z0-9]{6})\b/);
+      const rejectMatch = messageText.match(/\bREJECT\s+([A-Z0-9]{6})\b/);
+      if (!approveMatch && !rejectMatch) return;
+
+      const code = (approveMatch ?? rejectMatch)![1];
+      const action = approveMatch ? 'approve' : 'reject';
+
+      const proposal = await storage.getPatchProposalByCode(code);
+      if (!proposal) {
+        console.warn(`[ghl-inbound] Patch code ${code} not found`);
+        return;
+      }
+      if (proposal.status !== 'pending') {
+        console.log(`[ghl-inbound] Patch ${code} already in status: ${proposal.status}`);
+        return;
+      }
+
+      if (action === 'reject') {
+        await storage.updatePatchProposal(proposal.id, { status: 'rejected', resolvedAt: new Date() });
+        console.log(`[ghl-inbound] Patch ${code} rejected by Austin`);
+        return;
+      }
+
+      const { executePatch } = await import('./patch-executor');
+      void executePatch(proposal, storage).catch((err) => {
+        console.error('[ghl-inbound] executePatch threw:', err);
+      });
+
+      console.log(`[ghl-inbound] Patch ${code} approved — execution started`);
+    } catch (err) {
+      console.error('[ghl-inbound] Error processing webhook:', err);
+    }
+  });
+
   app.use(verifyCsrfToken);
-  
+
   // Initialize services
   const aiService = new AIService(storage);
   const authService = new AuthService(storage);
@@ -773,15 +824,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       : users.find(u => u.role === 'super_admin') ?? users[0];
     if (!user) return { error: 'No user found for autonomous task' };
 
-    // Resolve or create chat
+    // Resolve or create chat — reuse existing chat with same title to avoid accumulation
     let chatId = input.chatId;
     if (!chatId) {
-      const chat = await storage.createChat({
-        userId: user.id,
-        title: `[Autonomous] ${task.title}`,
-        model: input.model || getDefaultModel(),
-      });
-      chatId = chat.id;
+      const chatTitle = `[Autonomous] ${task.title}`;
+      const existingChats = await storage.getUserChats(user.id);
+      const existing = existingChats.find((c: any) => c.title === chatTitle);
+      if (existing) {
+        chatId = existing.id;
+      } else {
+        const chat = await storage.createChat({
+          userId: user.id,
+          title: chatTitle,
+          model: input.model || getDefaultModel(),
+        });
+        chatId = chat.id;
+      }
     }
 
     // Persist the trigger message
@@ -792,8 +850,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       metadata: { source: 'autonomous_task', taskId: task.id },
     });
 
-    const model = input.model || getDefaultModel();
     const platformSettings = await storage.getPlatformSettings();
+    const model = input.model
+      || (platformSettings.data as any)?.defaultModel as string
+      || getDefaultModel();
     const fallbackModel = (platformSettings.data as any)?.fallbackModel as string | null;
     const llmProvider = createFallbackAwareProvider(storage, model, fallbackModel);
 
@@ -807,6 +867,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const settingsData = platformSettings?.data as Record<string, any> | undefined;
     if (settingsData) extraToolContext.platformSettings = settingsData;
+
+    // Inject user timezone and location so all tools use correct time context
+    try {
+      const userPrefs = await storage.getUserPreferences(user.id);
+      if ((userPrefs as any)?.timezone) {
+        extraToolContext.userTimezone = (userPrefs as any).timezone;
+        // Also patch into platformSettings so getGoogleServices can access it
+        if (settingsData) settingsData.userTimezone = (userPrefs as any).timezone;
+      }
+      if ((userPrefs as any)?.location) extraToolContext.userLocation = (userPrefs as any).location;
+    } catch { /* non-fatal */ }
 
     try {
       const googleTokens = await storage.getOAuthTokens(user.id, 'google');
@@ -855,16 +926,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (err) { console.debug('[tool-context] Recall settings load failed — Recall tools unavailable:', err instanceof Error ? err.message : err); }
 
-    // Load chat history
+    // Load user timezone for prompt injection
+    const userPrefs = await storage.getUserPreferences(user.id);
+    const userTz = (userPrefs as any)?.timezone as string | undefined || 'America/Chicago';
+    const userLoc = (userPrefs as any)?.location as string | undefined;
+
+    // Load chat history — only the current prompt (no accumulated history).
+    // Autonomous/scheduled tasks are meant to be fresh each run. Loading prior history
+    // from a shared or long-running conversation causes the agent to mimic previous
+    // response styles (e.g. heartbeat format) instead of executing the current prompt.
     const allMessages = await storage.getChatMessages(chatId);
-    const historyMessages = allMessages.map(m => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
+    const lastMessage = allMessages[allMessages.length - 1];
+    const historyMessages = lastMessage ? [{
+      role: lastMessage.role as 'user' | 'assistant',
+      content: lastMessage.content,
+    }] : [];
 
     const assembled = await assembleRequest({
       messages: historyMessages,
       storage,
+      systemPrompt: buildTimezoneInstruction(userTz, userLoc),
     });
     const agentMessages = assembled.map(m => ({
       role: m.role as 'system' | 'user' | 'assistant',
@@ -875,6 +956,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const enabledTools = platformEnabledTools?.length ? platformEnabledTools : undefined;
 
     let fullResponse = '';
+    const executedTools: string[] = [];
     for await (const event of runAgentLoop(
       {
         model,
@@ -890,6 +972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       extraToolContext,
     )) {
       if (event.type === 'text_delta') fullResponse += event.text;
+      if (event.type === 'tool_call') executedTools.push(event.tool);
       if (event.type === 'done') fullResponse = event.content || fullResponse;
       if (event.type === 'error') fullResponse += `\nError: ${event.message}`;
     }
@@ -899,8 +982,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       chatId,
       role: 'assistant',
       content: fullResponse.trim(),
-      metadata: { source: 'autonomous_task', taskId: task.id, model },
+      metadata: {
+        source: 'autonomous_task',
+        taskId: task.id,
+        model,
+        executedTools: executedTools.length > 0 ? executedTools : undefined,
+      },
     });
+
+    // If this was a routine population task, parse the JSON response and update the routine entry
+    const routineInput = task.input as { routineDate?: string; routineEntryId?: string; userId?: string } | null;
+    if (routineInput?.routineDate && routineInput?.userId) {
+      try {
+        // Try to extract JSON from the response (try full response first, then extract)
+        let parsed: Record<string, unknown> | null = null;
+        try { parsed = JSON.parse(fullResponse.trim()); } catch {}
+        if (!parsed) {
+          // Try extracting code-block JSON
+          const codeBlock = fullResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (codeBlock?.[1]) try { parsed = JSON.parse(codeBlock[1].trim()); } catch {}
+        }
+        if (!parsed) {
+          // Last resort: find first { and match balanced braces
+          const start = fullResponse.indexOf('{');
+          if (start !== -1) {
+            let depth = 0;
+            for (let i = start; i < fullResponse.length; i++) {
+              if (fullResponse[i] === '{') depth++;
+              else if (fullResponse[i] === '}') depth--;
+              if (depth === 0) {
+                try { parsed = JSON.parse(fullResponse.slice(start, i + 1)); } catch {}
+                break;
+              }
+            }
+          }
+        }
+        if (parsed) {
+          const existing = await storage.getRoutineEntry(routineInput.userId, routineInput.routineDate);
+          if (existing) {
+            const existingData = existing.data as Record<string, unknown>;
+            // Merge: keep blocks/scoreboard/nonNegotiables from existing, update context/actionQueue/escalations from agent
+            const merged = {
+              ...existingData,
+              context: parsed.context ?? (existingData as any).context,
+              actionQueue: parsed.actionQueue ?? (existingData as any).actionQueue,
+              escalations: parsed.escalations ?? (existingData as any).escalations,
+            };
+            await storage.upsertRoutineEntry(routineInput.userId, routineInput.routineDate, merged);
+            console.log(`[routine-populator] Updated routine entry for ${routineInput.routineDate}`);
+          }
+        }
+      } catch (parseErr) {
+        console.warn('[routine-populator] Could not parse agent response for routine update:', parseErr);
+      }
+    }
 
     return { output: { chatId, response: fullResponse.trim() } };
   });
@@ -1041,6 +1176,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Start persistent cron job scheduler
   startCronScheduler(storage);
+
+  // Seed default skills + trigger rules (idempotent)
+  seedDefaultSkills(storage).catch(() => {});
 
   // Use Local Auth middleware
   const requireAuth = isAuthenticated;
@@ -1228,7 +1366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     category: outputTemplateCategorySchema,
     format: outputTemplateFormatSchema,
     description: z.string().max(500).optional().nullable(),
-    instructions: z.string().max(2000).optional().nullable(),
+    instructions: z.string().max(10000).optional().nullable(),
     requiredSections: outputTemplateSectionsArraySchema,
     isActive: z.boolean().optional(),
   });
@@ -1238,7 +1376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     category: outputTemplateCategorySchema.optional(),
     format: outputTemplateFormatSchema.optional(),
     description: z.string().max(500).optional().nullable(),
-    instructions: z.string().max(2000).optional().nullable(),
+    instructions: z.string().max(10000).optional().nullable(),
     requiredSections: outputTemplateSectionsArraySchema.optional(),
     isActive: z.boolean().optional(),
   });
@@ -1435,7 +1573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // First-run setup — create the single user
-  app.post('/api/setup', async (req, res) => {
+  app.post('/api/setup', rateLimitMiddleware(5, 60_000, 'setup'), async (req, res) => {
     try {
       // Only allow if no users exist
       const hasAdmin = await storage.hasAdminUser();
@@ -1490,7 +1628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Authentication routes
   // Login user
-  app.post('/api/auth/login', async (req, res) => {
+  app.post('/api/auth/login', rateLimitMiddleware(10, 60_000, 'login'), async (req, res) => {
     try {
       const loginSchema = z.union([
         z.object({ identifier: z.string().min(1, 'Email or username is required'), password: z.string().min(1, 'Password is required') }),
@@ -1531,6 +1669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify password
       const verification = authService.verifyPassword(parsed.password, user.password);
       if (!verification.isValid) {
+        audit('auth.login_failed', { ip: req.ip, detail: `user=${parsed.username}` });
         return res.status(401).json({ error: 'Invalid email/username or password' });
       }
 
@@ -1540,13 +1679,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateUser(user.id, { password: newHash });
       }
 
-      // Set session
-      req.session.userId = user.id;
-      req.session.username = user.username ?? undefined;
-      (req as any).user = user;
-
-      const { password: _, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      // Regenerate session to prevent session fixation, then set user
+      const sessionData = { userId: user.id, username: user.username ?? undefined };
+      req.session.regenerate((err: Error | null) => {
+        if (err) {
+          console.error('[auth] Session regeneration failed:', err);
+          // Fall back to setting directly if regenerate fails
+          req.session.userId = sessionData.userId;
+          req.session.username = sessionData.username;
+        } else {
+          req.session.userId = sessionData.userId;
+          req.session.username = sessionData.username;
+        }
+        (req as any).user = user;
+        audit('auth.login', { userId: user.id, ip: req.ip });
+        const { password: _, ...userWithoutPassword } = user;
+        res.json({ user: userWithoutPassword });
+      });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ error: 'Login failed', detail: error instanceof Error ? error.message : undefined });
@@ -1596,8 +1745,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/settings', requireAuth, async (_req, res) => {
+  app.get('/api/admin/settings', requireAuth, async (req: any, res) => {
     try {
+      // Only admin/super_admin can access settings
+      const userId = req.user?.id || req.session?.userId;
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user && user.role !== 'admin' && user.role !== 'super_admin') {
+          return res.status(403).json({ error: 'Admin access required' });
+        }
+      }
       const settings = await storage.getPlatformSettings();
       res.json({ settings });
     } catch (error) {
@@ -1610,6 +1767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const payload = platformSettingsDataSchema.parse(req.body);
       const userId = (req as any).user?.id;
+      audit('settings.update', { userId, ip: req.ip, detail: 'Platform settings updated' });
       const settings = await storage.upsertPlatformSettings(payload, userId);
 
       // Reconcile Telegram bot state whenever settings are saved
@@ -3449,6 +3607,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
 
+          // Inject user timezone and location so all tools use correct time context
+          try {
+            const userPrefs = await storage.getUserPreferences(prepared.userId);
+            if ((userPrefs as any)?.timezone) {
+              extraToolContext.userTimezone = (userPrefs as any).timezone;
+              if (settingsData) settingsData.userTimezone = (userPrefs as any).timezone;
+            }
+            if ((userPrefs as any)?.location) extraToolContext.userLocation = (userPrefs as any).location;
+          } catch { /* non-fatal */ }
+
           // Session-level Claude Code settings from chat metadata
           const ccMeta = prepared.metadata as any;
           if (ccMeta?.ccModel) extraToolContext.ccModel = ccMeta.ccModel;
@@ -3552,8 +3720,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Skip persist + done event entirely if agent errored with no output
         if (persistedContent !== null) {
+          // ── Evaluator-optimizer: if template validation fails, re-run once ──
+          let finalContent = persistedContent;
+          if (prepared.outputTemplate && !agentHadError && !(prepared as any)._evaluatorRetried) {
+            const firstCheck = validateOutputTemplateContent(prepared.outputTemplate, persistedContent);
+            if (firstCheck.status === 'fail' && firstCheck.missingSections.length > 0) {
+              (prepared as any)._evaluatorRetried = true;
+              try {
+                const correctionMsg = `Your response is missing these required sections from the "${prepared.outputTemplate.name}" template: ${firstCheck.missingSections.join(', ')}. Please revise your response to include ALL required sections. Output the complete revised response.`;
+                const correctionMessages = [
+                  ...agentMessages,
+                  { role: 'assistant' as const, content: persistedContent },
+                  { role: 'user' as const, content: correctionMsg },
+                ];
+                let correctedResponse = '';
+                for await (const event of runAgentLoop(
+                  { model: prepared.model, maxIterations: 10, userId: prepared.userId, conversationId: prepared.chatId, temperature: getModelTemperature(prepared.model), maxTokens: 4000 },
+                  correctionMessages, llmProvider, effectiveEnabledTools, extraToolContext,
+                )) {
+                  if (event.type === 'text_delta') correctedResponse += event.text;
+                  if (event.type === 'done') correctedResponse = event.content || correctedResponse;
+                }
+                if (correctedResponse.trim()) {
+                  finalContent = correctedResponse.trim();
+                }
+              } catch (evalErr) {
+                console.warn('[evaluator] Correction pass failed:', evalErr);
+              }
+            }
+          }
+
           const validationResult = prepared.outputTemplate
-            ? validateOutputTemplateContent(prepared.outputTemplate, persistedContent)
+            ? validateOutputTemplateContent(prepared.outputTemplate, finalContent)
             : null;
 
           const baseAssistantMetadata = buildAssistantMetadata({
@@ -3584,7 +3782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             hasAttachments: prepared.hasAttachments,
             lastMessageContent: prepared.lastMessage.content,
             model: prepared.model,
-            responseContent: persistedContent,
+            responseContent: finalContent,
             responseMetadata: assistantMetadata,
             usage: agentUsage,
             toolUsage: agentToolUsage,
@@ -3654,7 +3852,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId = undefined; // No filter, return all
       }
       
-      const chats = await storage.getUserChats(userId, false, projectId);
+      const allChats = await storage.getUserChats(userId, false, projectId);
+      // Filter out system/automated chats from the sidebar
+      const chats = allChats.filter((c: any) =>
+        !c.title?.startsWith('[Autonomous]') && !c.title?.startsWith('[Heartbeat]')
+      );
       res.json(chats);
     } catch (error) {
       console.error('Get chats error:', error);
@@ -5030,11 +5232,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/agent/tasks', requireAuth, async (req, res) => {
+  app.post('/api/agent/tasks', requireAuth, async (req: any, res) => {
     try {
       const { type, title, input, conversationId } = req.body;
       if (!type || !title) {
         return res.status(400).json({ error: 'type and title are required' });
+      }
+      // Validate conversation ownership if specified
+      if (conversationId) {
+        const chat = await storage.getChat(conversationId);
+        const userId = req.user?.id || req.session?.userId;
+        if (chat && chat.userId !== userId) {
+          return res.status(403).json({ error: 'Not authorized to assign tasks to this conversation' });
+        }
       }
       const task = await enqueueTask(type, title, input, conversationId);
       res.status(201).json(task);
@@ -5113,6 +5323,278 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to update cron job' });
     }
   });
+
+  // ── Daily Success Routine ──────────────────────────────────────────────────
+
+  const DEFAULT_ROUTINE_DATA = buildDefaultRoutineData();
+
+  app.get('/api/routine/today', requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const today = new Date().toISOString().split('T')[0];
+      let entry = await storage.getRoutineEntry(userId, today);
+      if (!entry) {
+        entry = await storage.upsertRoutineEntry(userId, today, DEFAULT_ROUTINE_DATA);
+      }
+      res.json(entry);
+    } catch (err: any) {
+      console.error('[routine] Failed to get today:', err);
+      res.status(500).json({ error: 'Failed to load routine' });
+    }
+  });
+
+  app.patch('/api/routine/today/block/:key', requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const today = new Date().toISOString().split('T')[0];
+      const { key } = req.params;
+      const { checked } = req.body;
+      const entry = await storage.getRoutineEntry(userId, today);
+      if (!entry) return res.status(404).json({ error: 'No routine entry for today' });
+      const data = entry.data as typeof DEFAULT_ROUTINE_DATA;
+      const blockIndex = data.blocks.findIndex((b: any) => b.key === key);
+      if (blockIndex === -1) return res.status(404).json({ error: 'Block not found' });
+      data.blocks[blockIndex].checked = !!checked;
+      data.blocks[blockIndex].checkedAt = checked ? new Date().toISOString() : null;
+      const updated = await storage.upsertRoutineEntry(userId, today, data);
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[routine] Failed to update block:', err);
+      res.status(500).json({ error: 'Failed to update block' });
+    }
+  });
+
+  app.patch('/api/routine/today/checklist/:key', requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const today = new Date().toISOString().split('T')[0];
+      const { key } = req.params;
+      const { checked } = req.body;
+      const entry = await storage.getRoutineEntry(userId, today);
+      if (!entry) return res.status(404).json({ error: 'No routine entry for today' });
+      const data = entry.data as typeof DEFAULT_ROUTINE_DATA;
+      const itemIndex = data.nonNegotiables.findIndex((n: any) => n.key === key);
+      if (itemIndex === -1) return res.status(404).json({ error: 'Checklist item not found' });
+      data.nonNegotiables[itemIndex].checked = !!checked;
+      const updated = await storage.upsertRoutineEntry(userId, today, data);
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[routine] Failed to update checklist:', err);
+      res.status(500).json({ error: 'Failed to update checklist' });
+    }
+  });
+
+  app.patch('/api/routine/today/scoreboard/:key', requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const today = new Date().toISOString().split('T')[0];
+      const { key } = req.params;
+      const { actual, validated } = req.body;
+      const entry = await storage.getRoutineEntry(userId, today);
+      if (!entry) return res.status(404).json({ error: 'No routine entry for today' });
+      const data = entry.data as typeof DEFAULT_ROUTINE_DATA;
+      const sb = data.scoreboard as Record<string, any>;
+      if (!sb[key]) return res.status(404).json({ error: 'Scoreboard metric not found' });
+      if (actual !== undefined) sb[key].actual = actual;
+      if (validated !== undefined) sb[key].validated = !!validated;
+      const updated = await storage.upsertRoutineEntry(userId, today, data);
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[routine] Failed to update scoreboard:', err);
+      res.status(500).json({ error: 'Failed to update scoreboard' });
+    }
+  });
+
+  app.patch('/api/routine/today/action/:id', requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const today = new Date().toISOString().split('T')[0];
+      const { id } = req.params;
+      const { resolved } = req.body;
+      const entry = await storage.getRoutineEntry(userId, today);
+      if (!entry) return res.status(404).json({ error: 'No routine entry for today' });
+      const data = entry.data as typeof DEFAULT_ROUTINE_DATA;
+      if (!Array.isArray(data.actionQueue)) data.actionQueue = [];
+      const action = data.actionQueue.find((a: any) => a.id === id);
+      if (!action) return res.status(404).json({ error: 'Action not found' });
+      (action as any).resolved = !!resolved;
+      const updated = await storage.upsertRoutineEntry(userId, today, data);
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[routine] Failed to update action:', err);
+      res.status(500).json({ error: 'Failed to update action' });
+    }
+  });
+
+  app.post('/api/routine/populate', requireAuth, rateLimitMiddleware(5, 60_000, 'routine-populate'), async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const { populateRoutine } = await import('./routine-populator');
+      const entry = await populateRoutine(storage, userId);
+      res.json(entry);
+    } catch (err: any) {
+      console.error('[routine] Failed to populate:', err);
+      res.status(500).json({ error: 'Failed to populate routine', detail: err.message });
+    }
+  });
+
+  // Add manual action item
+  app.post('/api/routine/today/action', requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const today = new Date().toISOString().split('T')[0];
+      const { item, detail, type, priority } = req.body;
+      if (!item) return res.status(400).json({ error: 'Item title is required' });
+      const entry = await storage.getRoutineEntry(userId, today);
+      if (!entry) return res.status(404).json({ error: 'No routine entry for today' });
+      const data = entry.data as Record<string, any>;
+      if (!Array.isArray(data.actionQueue)) data.actionQueue = [];
+      data.actionQueue.push({
+        id: randomUUID(),
+        item,
+        detail: detail || '',
+        type: type || 'tactical',
+        priority: priority || 'medium',
+        resolved: false,
+        source: 'manual',
+      });
+      const updated = await storage.upsertRoutineEntry(userId, today, data);
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[routine] Failed to add action:', err);
+      res.status(500).json({ error: 'Failed to add action item' });
+    }
+  });
+
+  // Update strategic notes
+  app.patch('/api/routine/today/notes', requireAuth, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const today = new Date().toISOString().split('T')[0];
+      const { notes } = req.body;
+      const entry = await storage.getRoutineEntry(userId, today);
+      if (!entry) return res.status(404).json({ error: 'No routine entry for today' });
+      const data = entry.data as Record<string, any>;
+      data.notes = notes ?? '';
+      const updated = await storage.upsertRoutineEntry(userId, today, data);
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[routine] Failed to update notes:', err);
+      res.status(500).json({ error: 'Failed to update notes' });
+    }
+  });
+
+  // ── Workflows (automation blueprints) ───────────────────────────────────────
+
+  app.get('/api/workflows', requireAuth, async (req, res) => {
+    try {
+      // Pull cron jobs that represent workflow-style automations
+      const userId = (req.user as any)?.id;
+      const allJobs = await storage.listCronJobs(userId);
+
+      // Map cron jobs to workflow definitions with step breakdowns
+      const workflows = allJobs.map((job) => {
+        const steps = getWorkflowSteps(job.name);
+        const outputs = getWorkflowOutputs(job.name);
+        return {
+          id: job.id,
+          name: job.name,
+          description: getWorkflowDescription(job.name),
+          schedule: job.cronExpression,
+          scheduleHuman: cronToHumanReadable(job.cronExpression),
+          jobTimezone: job.timezone ?? 'UTC',
+          enabled: job.enabled,
+          lastRunAt: job.lastRunAt?.toISOString() ?? null,
+          nextRunAt: job.nextRunAt?.toISOString() ?? null,
+          steps,
+          outputs,
+        };
+      });
+
+      res.json(workflows);
+    } catch (err: any) {
+      console.error('[workflows] Failed to list:', err);
+      res.status(500).json({ error: 'Failed to list workflows' });
+    }
+  });
+
+  // ── Manual workflow trigger ──────────────────────────────────────────────
+  app.post('/api/workflows/:id/run', requireAuth, async (req, res) => {
+    try {
+      const jobId = req.params.id;
+      const job = await storage.getCronJob(jobId);
+      if (!job) return res.status(404).json({ error: 'Workflow not found' });
+
+      const userId = (req.user as any)?.id;
+      if (job.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+      const { fireJob } = await import('./cron-scheduler');
+      await fireJob(job);
+
+      res.json({ success: true, jobId: job.id, message: `Workflow "${job.name}" triggered.` });
+    } catch (err: any) {
+      console.error('[workflows] Run failed:', err);
+      res.status(500).json({ error: 'Failed to run workflow' });
+    }
+  });
+
+  function cronToHumanReadable(expr: string): string {
+    const [min, hour, , , dow] = expr.split(/\s+/);
+    const h = parseInt(hour, 10);
+    const m = parseInt(min, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    const time = `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+    if (dow === '*') return `Daily at ${time}`;
+    if (dow === '1-5') return `Weekdays at ${time}`;
+    if (dow === '0,6') return `Weekends at ${time}`;
+    return `${expr} (${time})`;
+  }
+
+  function getWorkflowDescription(name: string): string {
+    const descriptions: Record<string, string> = {
+      'Daily Success Routine - Populate': 'Populates the Daily Success Routine dashboard with live data from all connected systems. Runs before work hours to prepare Austin\'s executive briefing.',
+      'Morning Brief': 'Generates a comprehensive morning briefing with meeting context, email highlights, pipeline status, and strategic priorities.',
+    };
+    return descriptions[name] ?? `Automated workflow: ${name}`;
+  }
+
+  function getWorkflowSteps(name: string): { order: number; name: string; description: string; tool: string; icon: string }[] {
+    const stepSets: Record<string, { order: number; name: string; description: string; tool: string; icon: string }[]> = {
+      'Daily Success Routine - Populate': [
+        { order: 1, name: 'Load carry-forward', description: 'Pull unfinished action items and missed blocks from yesterday\'s routine entry', tool: 'routine-populator', icon: 'database' },
+        { order: 2, name: 'Load strategic context', description: 'Pull knowledge items tagged as strategic priorities, goals, or routine context', tool: 'knowledge-base', icon: 'report' },
+        { order: 3, name: 'Query Calendar', description: 'Fetch today\'s meetings with time, title, and attendees from Google Calendar', tool: 'calendar_events', icon: 'calendar' },
+        { order: 4, name: 'Search Gmail', description: 'Find unread emails from the last 24 hours, flag client/vendor/team as critical', tool: 'gmail_search', icon: 'mail' },
+        { order: 5, name: 'Check HighLevel tasks', description: 'Search for tasks assigned to Austin that are due today or overdue across all sub-accounts', tool: 'ghl_mcp', icon: 'pipeline' },
+        { order: 6, name: 'Check pipeline deals', description: 'Identify pipeline opportunities stalled >7 days that need follow-up', tool: 'ghl_mcp', icon: 'pipeline' },
+        { order: 7, name: 'Check system health', description: 'Verify MCP server connections, check for tool errors or auth failures', tool: 'system_check', icon: 'system' },
+        { order: 8, name: 'Build action queue', description: 'Create prioritized action items from meetings (prep), emails (respond), tasks (complete), pipeline (follow-up)', tool: 'agent', icon: 'agent' },
+        { order: 9, name: 'Set escalation triggers', description: 'Flag meetings <30min away, critical emails >4h old, deals stalled >7d, overdue tasks', tool: 'agent', icon: 'agent' },
+        { order: 10, name: 'Update routine entry', description: 'Merge populated data into today\'s routine dashboard, preserving user checkboxes and notes', tool: 'storage', icon: 'database' },
+      ],
+      'Morning Brief': [
+        { order: 1, name: 'Query Notion meetings (C4 SaaS)', description: 'Fetch last 7 days of C4 SaaS Fireflies meetings with summaries', tool: 'notion_query_database', icon: 'database' },
+        { order: 2, name: 'Query Notion meetings (Virsyn)', description: 'Fetch last 7 days of Virsyn Fireflies meetings with summaries', tool: 'notion_query_database', icon: 'database' },
+        { order: 3, name: 'Query Recall meetings', description: 'Fetch last 7 days of Recall meeting transcriptions and summaries', tool: 'notion_query_database', icon: 'database' },
+        { order: 4, name: 'Search Virsyn email', description: 'Review Virsyn inbox for important threads from the past 3 days', tool: 'gmail_search', icon: 'mail' },
+        { order: 5, name: 'Search C4 SaaS email', description: 'Review C4 SaaS inbox for important threads from the past 3 days', tool: 'gmail_search', icon: 'mail' },
+        { order: 6, name: 'Deep research', description: 'Follow up on referenced links, documents, or materials from meetings and emails', tool: 'web_fetch', icon: 'report' },
+        { order: 7, name: 'Generate executive brief', description: 'Synthesize all findings into Morning Overview, Top Priorities, and Daily Agenda sections', tool: 'agent', icon: 'agent' },
+      ],
+    };
+    return stepSets[name] ?? [
+      { order: 1, name: 'Execute prompt', description: 'Run the configured prompt with full tool access', tool: 'agent', icon: 'agent' },
+    ];
+  }
+
+  function getWorkflowOutputs(name: string): string[] {
+    const outputSets: Record<string, string[]> = {
+      'Daily Success Routine - Populate': ['Routine Dashboard', 'Action Queue', 'Escalation Alerts', 'Carry-Forward Items'],
+      'Morning Brief': ['Morning Overview', 'Top Priorities', 'Daily Agenda'],
+    };
+    return outputSets[name] ?? ['Agent Response'];
+  }
 
   // Helper: resolve Google OAuth credentials from env or platform settings
   async function getGoogleCredentials(): Promise<{ clientId: string; clientSecret: string } | null> {
@@ -5722,10 +6204,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Recall AI Webhook — fires when a bot finishes or fails ──────────────────
   // Register this URL in Recall dashboard: POST https://your-domain.com/api/webhooks/recall
   // Events: bot.done, bot.fatal
-  app.post('/api/webhooks/recall', async (req, res) => {
+  app.post('/api/webhooks/recall', rateLimitMiddleware(30, 60_000, 'webhook'), async (req, res) => {
     try {
       // ── HMAC signature verification ──────────────────────────────────────────
       const webhookSecret = process.env.RECALL_WEBHOOK_SECRET;
+      if (!webhookSecret) {
+        console.warn('[recall-webhook] RECALL_WEBHOOK_SECRET not set — webhook signature validation disabled. Set this env var for production security.');
+      }
       if (webhookSecret) {
         const sigHeader = req.headers['recall-signature'] as string | undefined;
         if (!sigHeader) {
@@ -5748,7 +6233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (event === 'bot.fatal') {
         const bot = body?.data?.bot;
         const errorMsg = body?.data?.data?.sub_code ?? 'unknown error';
-        console.error(`[recall-webhook] Bot fatal: ${bot?.id} — ${errorMsg}`);
+        console.error(`[recall-webhook] Bot fatal: ${bot?.id?.slice(0, 8)}... — ${errorMsg}`);
         void storage.logToolError({
           toolName: 'recall_bot',
           error: `Bot fatal (${errorMsg}): bot_id=${bot?.id}`,
@@ -5960,10 +6445,14 @@ Upcoming meetings, follow-ups, or deadlines mentioned. Write "None" if none.`;
 
           if (!notionResp.ok) {
             const errMsg = notionResult?.message ?? JSON.stringify(notionResult);
-            console.error(`[recall-webhook] Notion error for bot ${bot.id}:`, errMsg);
-            await logToMelvin(`❌ **${title}** — Notion page creation failed.\nError: ${errMsg}\n\nMake sure the Recall meetings database is shared with the MelvinOS integration.`);
+            const isAuthError = notionResp.status === 401 || notionResp.status === 403;
+            console.error(`[recall-webhook] Notion error (${notionResp.status}) for bot ${bot.id.slice(0, 8)}...:`, errMsg);
+            const authHint = isAuthError
+              ? '\n\n**Token may be expired or revoked.** Go to Settings > Integrations > Notion and re-enter the integration token.'
+              : '\n\nMake sure the Recall meetings database is shared with the MelvinOS integration.';
+            await logToMelvin(`❌ **${title}** — Notion page creation failed (HTTP ${notionResp.status}).\nError: ${errMsg}${authHint}`);
           } else {
-            console.log(`[recall-webhook] ✓ Created Notion entry for bot ${bot.id}: "${title}"`);
+            console.log(`[recall-webhook] ✓ Created Notion entry for bot ${bot.id.slice(0, 8)}...: "${title}"`);
             await logToMelvin(`✅ **${title}**\nTranscript: ${transcriptText ? `${transcriptText.length} chars` : 'unavailable'} · Speakers: ${speakers.join(', ') || 'unknown'}\nNotion: ${notionPageUrl || 'created'}\n\n**Summary preview:**\n${meetingSummary.slice(0, 400)}${meetingSummary.length > 400 ? '...' : ''}`);
           }
         } catch (err) {
@@ -7038,6 +7527,17 @@ Upcoming meetings, follow-ups, or deadlines mentioned. Write "None" if none.`;
         return res.status(400).json({ error: 'Invalid move data', details: error.errors });
       }
       res.status(500).json({ error: 'Failed to move chat', detail: error instanceof Error ? error.message : undefined });
+    }
+  });
+
+  // ── Patch Proposals Admin API ─────────────────────────────────────────────
+  app.get('/api/admin/patches', requireAuth, async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const patches = await storage.listPatchProposals(status);
+      res.json(patches);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to list patches' });
     }
   });
 

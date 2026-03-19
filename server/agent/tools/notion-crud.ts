@@ -32,6 +32,9 @@ export const notionReadPageTool: ToolDefinition = {
   async execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
     const pageId = String(args.page_id ?? '').trim();
     if (!pageId) return { output: '', error: 'Page ID is required.' };
+    if (!/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(pageId)) {
+      return { output: '', error: `Invalid page ID format: "${pageId}". Expected UUID.` };
+    }
 
     const client = await getNotionClient(context);
     if (!client) return { output: '', error: NOT_CONNECTED };
@@ -258,6 +261,93 @@ export const notionUpdatePageTool: ToolDefinition = {
       };
     } catch (err: any) {
       return { output: '', error: `Failed to update Notion page: ${err.message}` };
+    }
+  },
+};
+
+// ── Query Database ──────────────────────────────────────────────────────────
+
+export const notionQueryDatabaseTool: ToolDefinition = {
+  name: 'notion_query_database',
+  description:
+    'Query a Notion database with optional filters and sorting. Use this to retrieve rows from a database filtered by date, status, or other properties. Returns page titles and properties.',
+  parameters: {
+    type: 'object',
+    properties: {
+      database_id: {
+        type: 'string',
+        description: 'The Notion database ID (UUID format).',
+      },
+      filter: {
+        type: 'object',
+        description: 'Notion filter object. Example for last 7 days: {"property": "Date", "date": {"on_or_after": "2026-03-10"}}. Compound filters use {"and": [...]} or {"or": [...]}.',
+      },
+      sorts: {
+        type: 'array',
+        description: 'Array of sort objects. Example: [{"property": "Date", "direction": "descending"}]',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum number of results (default: 25, max: 100).',
+      },
+    },
+    required: ['database_id'],
+  },
+
+  async execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
+    const databaseId = String(args.database_id ?? '').trim();
+    if (!databaseId) return { output: '', error: 'Database ID is required.' };
+    if (!/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(databaseId)) {
+      return { output: '', error: `Invalid database ID format: "${databaseId}". Expected UUID (e.g., "a1b2c3d4-5e6f-...").` };
+    }
+
+    const filter = args.filter as Record<string, unknown> | undefined;
+    const sorts = args.sorts as any[] | undefined;
+    const limit = Math.min(Number(args.limit ?? 25), 100);
+
+    const client = await getNotionClient(context);
+    if (!client) return { output: '', error: NOT_CONNECTED };
+
+    try {
+      const queryParams: any = { database_id: databaseId, page_size: limit };
+      if (filter) queryParams.filter = filter;
+      if (sorts) queryParams.sorts = sorts;
+
+      const response: any = await client.databases.query(queryParams);
+      const pages = response.results ?? [];
+
+      if (pages.length === 0) {
+        return { output: 'No results found matching your query.' };
+      }
+
+      const rows: string[] = [];
+      for (const page of pages) {
+        let title = '(Untitled)';
+        const props: string[] = [];
+
+        if (page.properties) {
+          for (const [key, prop] of Object.entries(page.properties) as [string, any][]) {
+            if (prop.type === 'title') {
+              title = prop.title?.map((t: any) => t.plain_text).join('') || '(Untitled)';
+            } else {
+              const val = formatPropertyValue(prop);
+              if (val) props.push(`  - ${key}: ${val}`);
+            }
+          }
+        }
+
+        rows.push(`**${title}** (${page.id})\n${props.join('\n')}`);
+      }
+
+      const output = `Found ${pages.length} result(s):\n\n${rows.join('\n\n')}`;
+
+      // Save to workspace
+      const fileName = timestampedName('notion-query', 'md');
+      await saveToWorkspace(context.workspacePath, 'notion', fileName, output);
+
+      return { output };
+    } catch (err: any) {
+      return { output: '', error: `Failed to query database: ${err.message}` };
     }
   },
 };

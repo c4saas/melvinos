@@ -51,6 +51,19 @@ export const calendarEventsTool: ToolDefinition = {
       }),
     );
 
+    const userTz = (context as any).userTimezone as string | undefined || 'UTC';
+    const fmtEvtTime = (iso: string) => {
+      try {
+        return new Date(iso).toLocaleString('en-US', {
+          timeZone: userTz,
+          weekday: 'short', month: 'short', day: 'numeric',
+          hour: 'numeric', minute: '2-digit', hour12: true,
+        });
+      } catch {
+        return new Date(iso).toLocaleString('en-US');
+      }
+    };
+
     const sections: string[] = [];
     for (const r of results) {
       if (r.status === 'rejected') continue;
@@ -60,8 +73,8 @@ export const calendarEventsTool: ToolDefinition = {
         continue;
       }
       const lines = result.events.map((evt: any, i: number) => {
-        const start = evt.start ? new Date(evt.start).toLocaleString() : 'TBD';
-        const end = evt.end ? new Date(evt.end).toLocaleString() : '';
+        const start = evt.start ? fmtEvtTime(evt.start) : 'TBD';
+        const end = evt.end ? new Date(evt.end).toLocaleTimeString('en-US', { timeZone: userTz, hour: 'numeric', minute: '2-digit', hour12: true }) : '';
         const attendeeStr = evt.attendees?.length > 0 ? `\n   Attendees: ${evt.attendees.join(', ')}` : '';
         const locationStr = evt.location ? `\n   Location: ${evt.location}` : '';
         const meetStr = evt.meetLink ? `\n   Meet Link: ${evt.meetLink}` : '';

@@ -1,6 +1,9 @@
 import type { ToolDefinition, ToolResult, ToolContext } from '../tool-registry';
 import { enqueueTask } from '../task-queue';
 
+// In-memory daily spawn counter (resets on restart, which is fine for rate limiting)
+const spawnCounts = new Map<string, number>();
+
 /**
  * Allows the agent to spawn a background autonomous task.
  * The task will run asynchronously via the task queue and can continue
@@ -38,6 +41,14 @@ export const spawnTaskTool: ToolDefinition = {
 
     if (!title) return { output: '', error: 'title is required' };
     if (!prompt) return { output: '', error: 'prompt is required' };
+
+    // Rate limit: max 50 tasks per day per user
+    const key = `spawn_${context.userId}_${new Date().toISOString().split('T')[0]}`;
+    const count = spawnCounts.get(key) ?? 0;
+    if (count >= 50) {
+      return { output: '', error: 'Daily task spawn limit reached (50/day). Try again tomorrow.' };
+    }
+    spawnCounts.set(key, count + 1);
 
     try {
       const task = await enqueueTask(

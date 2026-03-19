@@ -17,6 +17,8 @@ import ResetPassword from "@/pages/reset-password";
 import { useAuth } from "@/hooks/useAuth";
 import AssistantsDirectoryPage from "@/pages/assistants";
 import WorkspacePage from "@/pages/workspace";
+import RoutinePage from "@/pages/routine";
+import WorkflowsPage from "@/pages/workflows";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CommandPalette } from "@/components/CommandPalette";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -32,6 +34,7 @@ import AdminAssistantsPage from "@/pages/settings/AssistantsPage";
 import APIAccessPage from "@/pages/settings/APIAccessPage";
 import IntegrationsPage from "@/pages/settings/IntegrationsPage";
 import SkillsPage from "@/pages/settings/SkillsPage";
+import AgentToolsPage from "@/pages/settings/AgentToolsPage";
 import McpServersPage from "@/pages/settings/McpServersPage";
 import HeartbeatPage from "@/pages/settings/HeartbeatPage";
 import SetupPage from "@/pages/settings/SetupPage";
@@ -49,6 +52,7 @@ export interface AdminPageRoute {
 export const ADMIN_PAGE_ROUTES: AdminPageRoute[] = [
   { path: "/settings/system-prompts", slot: "system", Component: SystemPromptsPage },
   { path: "/settings/output-templates", slot: "system", Component: OutputTemplatesPage },
+  { path: "/settings/agent-tools", slot: "system", Component: AgentToolsPage },
   { path: "/settings/tool-policies", slot: "system", Component: ToolPoliciesPage },
   { path: "/settings/knowledge-base", slot: "system", Component: KnowledgeBasePage },
   { path: "/settings/memory", slot: "system", Component: MemoryPage },
@@ -132,6 +136,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/app" component={Chat} />
+      <Route path="/routine" component={RoutinePage} />
+      <Route path="/workflows" component={WorkflowsPage} />
       <Route path="/workspace" component={WorkspacePage} />
       <Route path="/usage" component={UsagePage} />
       <Route path="/assistants" component={AssistantsDirectoryPage} />

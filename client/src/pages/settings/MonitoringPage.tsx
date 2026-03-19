@@ -5,11 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, RefreshCw, ArrowRight, Activity, Clock, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, RefreshCw, ArrowRight, Activity, Clock, Trash2, ChevronDown, ChevronUp, X, CheckCircle2, XCircle, CircleDot, Timer } from 'lucide-react';
 import { useAdminLayout } from '@/components/AdminLayout';
 import { getAdminRouteById } from '@shared/adminRoutes';
 import { apiRequest } from '@/lib/queryClient';
 import { useBranding } from '@/hooks/useBranding';
+import { useUserTimezone } from '@/hooks/useUserTimezone';
+import { fmtDateTime } from '@/lib/dateUtils';
 
 interface HealthResponse {
   status: string;
@@ -42,6 +44,7 @@ interface AgentTask {
   progress: number;
   conversationId: string | null;
   startedAt: string | null;
+  completedAt: string | null;
   createdAt: string;
   error: string | null;
 }
@@ -72,6 +75,7 @@ export default function MonitoringPage() {
   const { agentName } = useBranding();
   const { setHeader, resetHeader } = useAdminLayout();
   const queryClient = useQueryClient();
+  const userTz = useUserTimezone();
 
   const routeMeta = getAdminRouteById('monitoring' as any);
 
@@ -126,6 +130,31 @@ export default function MonitoringPage() {
       return [...(running.tasks ?? []), ...(pending.tasks ?? [])];
     },
     refetchInterval: 5000,
+  });
+
+  const { data: recentTasks = [], refetch: refetchRecentTasks } = useQuery<AgentTask[]>({
+    queryKey: ['/api/agent/tasks/recent'],
+    queryFn: async () => {
+      const [completedRes, failedRes] = await Promise.all([
+        apiRequest('GET', '/api/agent/tasks?status=completed'),
+        apiRequest('GET', '/api/agent/tasks?status=failed'),
+      ]);
+      const [completed, failed] = await Promise.all([completedRes.json(), failedRes.json()]);
+      const all = [...(completed.tasks ?? []), ...(failed.tasks ?? [])];
+      all.sort((a: AgentTask, b: AgentTask) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return all.slice(0, 20);
+    },
+    refetchInterval: 15000,
+  });
+
+  const cancelTaskMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest('POST', `/api/agent/tasks/${id}/cancel`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/tasks/active'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/tasks/recent'] });
+    },
   });
 
   const { data: cronData, refetch: refetchCrons } = useQuery<{ jobs: CronJob[] }>({
@@ -242,7 +271,7 @@ export default function MonitoringPage() {
             </div>
             {health.lastAgentRunAt && (
               <p className="mt-3 text-xs text-muted-foreground">
-                Last agent run: {new Date(health.lastAgentRunAt).toLocaleString()}
+                Last agent run: {fmtDateTime(new Date(health.lastAgentRunAt).toISOString(), userTz)}
               </p>
             )}
           </CardContent>
@@ -276,7 +305,7 @@ export default function MonitoringPage() {
               <span className="text-muted-foreground">Last Run</span>
               <p className="font-medium">
                 {heartbeatStatus?.lastRunAt
-                  ? new Date(heartbeatStatus.lastRunAt).toLocaleString()
+                  ? fmtDateTime(heartbeatStatus.lastRunAt, userTz)
                   : 'Never'}
               </p>
             </div>
@@ -284,7 +313,7 @@ export default function MonitoringPage() {
               <span className="text-muted-foreground">Next Run</span>
               <p className="font-medium">
                 {heartbeatStatus?.nextRunAt
-                  ? new Date(heartbeatStatus.nextRunAt).toLocaleString()
+                  ? fmtDateTime(heartbeatStatus.nextRunAt, userTz)
                   : 'N/A'}
               </p>
             </div>
@@ -343,8 +372,8 @@ export default function MonitoringPage() {
                     <p className="text-xs text-muted-foreground font-mono">{job.cronExpression}</p>
                     <p className="text-xs text-muted-foreground line-clamp-1">{job.prompt}</p>
                     <div className="flex gap-3 text-[10px] text-muted-foreground">
-                      <span>Next: {job.nextRunAt ? new Date(job.nextRunAt).toLocaleString() : '—'}</span>
-                      <span>Last: {job.lastRunAt ? new Date(job.lastRunAt).toLocaleString() : 'never'}</span>
+                      <span>Next: {job.nextRunAt ? fmtDateTime(job.nextRunAt, userTz) : '—'}</span>
+                      <span>Last: {job.lastRunAt ? fmtDateTime(job.lastRunAt, userTz) : 'never'}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -372,56 +401,143 @@ export default function MonitoringPage() {
         </CardContent>
       </Card>
 
-      {/* Active Tasks */}
+      {/* Task Queue */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            Active Tasks
-            {activeTasks.length > 0 ? (
-              <Badge variant="default" className="bg-green-600">{activeTasks.length}</Badge>
-            ) : (
-              <Badge variant="secondary">0</Badge>
-            )}
-          </CardTitle>
-          <CardDescription>Background agent tasks currently running or queued.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Task Queue
+              {activeTasks.filter(t => t.status === 'running').length > 0 && (
+                <Badge variant="default" className="bg-green-600">
+                  {activeTasks.filter(t => t.status === 'running').length} running
+                </Badge>
+              )}
+              {activeTasks.filter(t => t.status === 'pending').length > 0 && (
+                <Badge variant="secondary">
+                  {activeTasks.filter(t => t.status === 'pending').length} queued
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>Background agent tasks — live view, refreshes every 5s.</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/agent/tasks/active'] });
+            refetchRecentTasks();
+          }}>
+            <RefreshCw className="mr-1 h-3 w-3" /> Refresh
+          </Button>
         </CardHeader>
-        <CardContent>
-          {activeTasks.length === 0 ? (
-            <p className="py-2 text-sm text-muted-foreground">No active tasks.</p>
-          ) : (
-            <div className="divide-y">
-              {activeTasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{task.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{task.type}</Badge>
-                      {task.conversationId && (
-                        <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[120px]">
-                          {task.conversationId}
+        <CardContent className="space-y-4">
+          {/* Running */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Running</p>
+            {activeTasks.filter(t => t.status === 'running').length === 0 ? (
+              <p className="text-sm text-muted-foreground pl-1">No tasks running.</p>
+            ) : (
+              <div className="space-y-2">
+                {activeTasks.filter(t => t.status === 'running').map((task) => (
+                  <div key={task.id} className="flex items-center gap-3 rounded-lg border bg-green-500/5 border-green-500/20 px-3 py-2.5">
+                    <Loader2 className="h-4 w-4 animate-spin text-green-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{task.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{task.type}</Badge>
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Timer className="h-2.5 w-2.5" />{formatDuration(task.startedAt ?? task.createdAt)}
                         </span>
+                      </div>
+                      {task.progress > 0 && (
+                        <Progress value={task.progress} className="h-1 mt-1.5" />
                       )}
                     </div>
-                    {task.progress > 0 && (
-                      <Progress value={task.progress} className="h-1 mt-2" />
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <Badge
-                      variant={task.status === 'running' ? 'default' : 'secondary'}
-                      className={task.status === 'running' ? 'bg-green-600' : ''}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => cancelTaskMutation.mutate(task.id)}
+                      disabled={cancelTaskMutation.isPending}
+                      title="Cancel task"
                     >
-                      {task.status}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">
-                      {formatDuration(task.startedAt ?? task.createdAt)}
-                    </span>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Queued / Pending */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Queued</p>
+            {activeTasks.filter(t => t.status === 'pending').length === 0 ? (
+              <p className="text-sm text-muted-foreground pl-1">No tasks waiting.</p>
+            ) : (
+              <div className="space-y-2">
+                {activeTasks.filter(t => t.status === 'pending').map((task) => (
+                  <div key={task.id} className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2.5">
+                    <CircleDot className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{task.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{task.type}</Badge>
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-2.5 w-2.5" />waiting {formatDuration(task.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => cancelTaskMutation.mutate(task.id)}
+                      disabled={cancelTaskMutation.isPending}
+                      title="Cancel task"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent history */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Recent (last 20)</p>
+            {recentTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground pl-1">No completed tasks yet.</p>
+            ) : (
+              <div className="divide-y">
+                {recentTasks.map((task) => (
+                  <div key={task.id} className="flex items-center gap-3 py-2">
+                    {task.status === 'completed' ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{task.title}</p>
+                      {task.error && (
+                        <p className="text-[10px] text-destructive truncate">{task.error}</p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <Badge
+                        variant={task.status === 'completed' ? 'outline' : 'destructive'}
+                        className="text-[10px] px-1.5 py-0"
+                      >
+                        {task.status}
+                      </Badge>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {fmtDateTime(task.completedAt ?? task.createdAt, userTz)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -535,7 +651,7 @@ export default function MonitoringPage() {
                       <div className="flex items-center gap-2 min-w-0 flex-wrap">
                         <Badge variant="outline" className="text-xs shrink-0">{err.toolName}</Badge>
                         <span className="text-[10px] text-muted-foreground shrink-0">
-                          {new Date(err.createdAt).toLocaleString()}
+                          {fmtDateTime(err.createdAt, userTz)}
                         </span>
                         {err.conversationId && (
                           <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[120px]">

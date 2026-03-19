@@ -91,10 +91,13 @@ async function connectServer(config: McpServerConfig): Promise<McpConnection> {
       parameters: (mcpTool.inputSchema ?? { type: 'object', properties: {} }) as JSONSchema7,
       async execute(args: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> {
         try {
-          const result = await client.callTool({
-            name: mcpTool.name,
-            arguments: args,
-          });
+          const MCP_TIMEOUT_MS = 30_000;
+          const result = await Promise.race([
+            client.callTool({ name: mcpTool.name, arguments: args }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error(`MCP tool "${mcpTool.name}" timed out after ${MCP_TIMEOUT_MS / 1000}s`)), MCP_TIMEOUT_MS)
+            ),
+          ]);
 
           const textParts: string[] = [];
           if (Array.isArray(result.content)) {
@@ -112,6 +115,11 @@ async function connectServer(config: McpServerConfig): Promise<McpConnection> {
           };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
+          // If connection-level error, attempt auto-reconnect for next call
+          if (message.includes('closed') || message.includes('disconnected') || message.includes('ECONNREFUSED')) {
+            console.warn(`[mcp] Connection lost for "${config.name}", scheduling reconnect...`);
+            void autoReconnect(config.id);
+          }
           return { output: '', error: `MCP tool "${mcpTool.name}" failed: ${message}` };
         }
       },
@@ -151,6 +159,25 @@ async function disconnectServer(serverId: string): Promise<void> {
 
   connections.delete(serverId);
   console.log(`[mcp] Disconnected from "${connection.config.name}"`);
+}
+
+const reconnectingServers = new Set<string>();
+
+async function autoReconnect(serverId: string): Promise<void> {
+  if (reconnectingServers.has(serverId)) return;
+  const existing = connections.get(serverId);
+  if (!existing) return;
+  reconnectingServers.add(serverId);
+  try {
+    await new Promise(r => setTimeout(r, 2000)); // 2s backoff
+    await disconnectServer(serverId);
+    await connectServer(existing.config);
+    console.log(`[mcp] Auto-reconnected to "${existing.config.name}" successfully`);
+  } catch (err) {
+    console.error(`[mcp] Auto-reconnect failed for "${existing.config.name}":`, err);
+  } finally {
+    reconnectingServers.delete(serverId);
+  }
 }
 
 export async function initMcpServers(configs: McpServerConfig[]): Promise<void> {

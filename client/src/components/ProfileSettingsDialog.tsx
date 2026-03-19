@@ -27,6 +27,9 @@ import { useTheme } from '@/components/ThemeProvider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { useBranding } from '@/hooks/useBranding';
+import { TIMEZONES } from '@/lib/timezones';
+import { useUserTimezone } from '@/hooks/useUserTimezone';
+import { fmtDate } from '@/lib/dateUtils';
 
 interface ProfileSettingsDialogProps {
   isOpen: boolean;
@@ -280,6 +283,7 @@ export function ProfileSettingsDialog({ isOpen, onClose, user, defaultTab }: Pro
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const { agentName } = useBranding();
+  const userTz = useUserTimezone();
   const [activeTab, setActiveTab] = useState('profile');
   const { theme, setTheme } = useTheme();
   const selectedThemeOption = themeOptions.find((option) => option.value === theme) ?? themeOptions[0];
@@ -913,6 +917,45 @@ export function ProfileSettingsDialog({ isOpen, onClose, user, defaultTab }: Pro
                     />
                   </div>
 
+                  {/* Timezone + Location — top priority so agent always uses correct context */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+                    <div>
+                      <Label htmlFor="timezone" className="text-xs sm:text-sm flex items-center gap-1.5 font-medium">
+                        <Globe className="h-3 w-3 text-blue-500" />
+                        Timezone <span className="text-blue-500 text-xs font-normal">(used by all AI features)</span>
+                      </Label>
+                      <Select
+                        value={preferences.timezone ?? ''}
+                        onValueChange={(v) => setPreferences(prev => ({ ...prev, timezone: v }))}
+                      >
+                        <SelectTrigger id="timezone" className="mt-1" data-testid="select-timezone">
+                          <SelectValue placeholder="Select your timezone..." />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {TIMEZONES.map((tz) => (
+                            <SelectItem key={tz.value} value={tz.value}>
+                              {tz.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="location" className="text-xs sm:text-sm flex items-center gap-1.5 font-medium">
+                        <MapPin className="h-3 w-3 text-blue-500" />
+                        Location <span className="text-blue-500 text-xs font-normal">(city or region)</span>
+                      </Label>
+                      <Input
+                        id="location"
+                        placeholder="e.g., Dallas, TX"
+                        value={preferences.location ?? ''}
+                        onChange={(e) => setPreferences(prev => ({ ...prev, location: e.target.value }))}
+                        className="mt-1"
+                        data-testid="input-location"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <Label htmlFor="occupation" className="text-xs sm:text-sm">Occupation / Role</Label>
                     <Input
@@ -950,37 +993,6 @@ export function ProfileSettingsDialog({ isOpen, onClose, user, defaultTab }: Pro
                   </div>
 
                   <Separator />
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="timezone" className="text-xs sm:text-sm flex items-center gap-1.5">
-                        <Globe className="h-3 w-3" />
-                        Timezone
-                      </Label>
-                      <Input
-                        id="timezone"
-                        placeholder="e.g., America/New_York, UTC+2"
-                        value={preferences.timezone ?? ''}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, timezone: e.target.value }))}
-                        className="mt-1"
-                        data-testid="input-timezone"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="location" className="text-xs sm:text-sm flex items-center gap-1.5">
-                        <MapPin className="h-3 w-3" />
-                        Location
-                      </Label>
-                      <Input
-                        id="location"
-                        placeholder="e.g., New York, NY"
-                        value={preferences.location ?? ''}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, location: e.target.value }))}
-                        className="mt-1"
-                        data-testid="input-location"
-                      />
-                    </div>
-                  </div>
 
                   <div>
                     <Label htmlFor="website" className="text-xs sm:text-sm flex items-center gap-1.5">
@@ -1569,7 +1581,7 @@ export function ProfileSettingsDialog({ isOpen, onClose, user, defaultTab }: Pro
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-medium truncate text-xs sm:text-sm">{chat.title}</h4>
                                 <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                                  {new Date(chat.updatedAt).toLocaleDateString()}
+                                  {fmtDate(chat.updatedAt, userTz)}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0 ml-2">

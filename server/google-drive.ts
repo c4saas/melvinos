@@ -6,6 +6,7 @@ export class GoogleDriveService {
   private drive: any;
   private gmail: any;
   private calendar: any;
+  userTimezone: string = 'UTC';
 
   constructor(clientId: string, clientSecret: string, redirectUri: string) {
     this.oauth2Client = new google.auth.OAuth2(
@@ -340,19 +341,23 @@ export class GoogleDriveService {
     to: string,
     subject: string,
     body: string,
-    options?: { cc?: string; bcc?: string; replyToMessageId?: string; threadId?: string },
+    options?: { cc?: string; bcc?: string; replyToMessageId?: string; threadId?: string; html?: boolean },
   ): Promise<any> {
     try {
       const lines: string[] = [];
       lines.push(`To: ${to}`);
       if (options?.cc) lines.push(`Cc: ${options.cc}`);
       if (options?.bcc) lines.push(`Bcc: ${options.bcc}`);
-      lines.push(`Subject: ${subject}`);
+      // RFC 2047: encode non-ASCII characters in headers to prevent garbled output
+      const encodedSubject = /[^\x00-\x7F]/.test(subject)
+        ? `=?UTF-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`
+        : subject;
+      lines.push(`Subject: ${encodedSubject}`);
       if (options?.replyToMessageId) {
         lines.push(`In-Reply-To: ${options.replyToMessageId}`);
         lines.push(`References: ${options.replyToMessageId}`);
       }
-      lines.push('Content-Type: text/plain; charset=utf-8');
+      lines.push(`Content-Type: ${options?.html ? 'text/html' : 'text/plain'}; charset=utf-8`);
       lines.push('');
       lines.push(body);
 
@@ -373,7 +378,10 @@ export class GoogleDriveService {
 
   async createDraft(to: string, subject: string, body: string): Promise<any> {
     try {
-      const message = `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`;
+      const encodedSubject = /[^\x00-\x7F]/.test(subject)
+        ? `=?UTF-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`
+        : subject;
+      const message = `To: ${to}\r\nSubject: ${encodedSubject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`;
       const raw = Buffer.from(message).toString('base64url');
       const response = await this.gmail.users.drafts.create({
         userId: 'me',
@@ -468,12 +476,14 @@ export class GoogleDriveService {
     location?: string;
     attendees?: string[];
     addMeetLink?: boolean;
+    timezone?: string;
   }): Promise<any> {
     try {
+      const tz = event.timezone || this.userTimezone || 'UTC';
       const requestBody: any = {
         summary: event.summary,
-        start: { dateTime: event.start, timeZone: 'America/Chicago' },
-        end: { dateTime: event.end, timeZone: 'America/Chicago' },
+        start: { dateTime: event.start, timeZone: tz },
+        end: { dateTime: event.end, timeZone: tz },
       };
       if (event.description) requestBody.description = event.description;
       if (event.location) requestBody.location = event.location;
@@ -521,8 +531,9 @@ export class GoogleDriveService {
     try {
       const requestBody: any = {};
       if (updates.summary) requestBody.summary = updates.summary;
-      if (updates.start) requestBody.start = { dateTime: updates.start, timeZone: 'America/Chicago' };
-      if (updates.end) requestBody.end = { dateTime: updates.end, timeZone: 'America/Chicago' };
+      const tz = this.userTimezone || 'UTC';
+      if (updates.start) requestBody.start = { dateTime: updates.start, timeZone: tz };
+      if (updates.end) requestBody.end = { dateTime: updates.end, timeZone: tz };
       if (updates.description !== undefined) requestBody.description = updates.description;
       if (updates.location !== undefined) requestBody.location = updates.location;
       if (updates.attendees) requestBody.attendees = updates.attendees.map(email => ({ email }));

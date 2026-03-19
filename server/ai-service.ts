@@ -6,6 +6,7 @@ import { performWebSearch } from './web-search';
 import type { UserPreferences, Message, ToolPolicy, AssistantType } from '@shared/schema';
 import { IStorage } from './storage';
 import { assembleRequest } from './prompt-engine';
+import { buildTimezoneInstruction } from './timezone-context';
 import { synthesizeClauses } from './openai-voice';
 
 export interface ChatCompletionRequest {
@@ -472,12 +473,24 @@ export class AIService {
       ? project?.includeUserMemories === 'true'
       : preferences?.personalizationEnabled === 'true';
 
+    // ── ALWAYS inject timezone at the top — regardless of personalization toggle ──
+    // Non-negotiable: agent must convert ALL UTC tool results to user's timezone.
+    {
+      const tz = (preferences as any)?.timezone as string | undefined;
+      const loc = (preferences as any)?.location as string | undefined;
+      profileParts.unshift(buildTimezoneInstruction(tz || 'UTC', loc));
+    }
+
     if (includePersonalization && preferences) {
-      if (preferences.name || preferences.occupation || preferences.bio) {
+      if (preferences.name || preferences.occupation || preferences.bio || (preferences as any)?.company) {
         profileParts.push('\n## User Profile');
 
         if (preferences.name) {
           profileParts.push(`Name: ${preferences.name}`);
+        }
+
+        if ((preferences as any)?.company) {
+          profileParts.push(`Company: ${(preferences as any).company}`);
         }
 
         if (preferences.occupation) {

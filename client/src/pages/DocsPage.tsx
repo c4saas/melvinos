@@ -15,6 +15,8 @@ import {
   Globe,
   Search,
   Brain,
+  Workflow,
+  Lightbulb,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +30,8 @@ const SECTIONS = [
   { id: 'memory', label: 'Memory & Learning', icon: Brain },
   { id: 'workspace', label: 'Workspace', icon: FolderOpen },
   { id: 'tools', label: 'Tools & Capabilities', icon: Wrench },
+  { id: 'skills', label: 'Skills', icon: Lightbulb },
+  { id: 'workflows', label: 'Workflows', icon: Workflow },
   { id: 'subagents', label: 'Subagents', icon: Bot },
   { id: 'settings', label: 'Settings Reference', icon: Settings },
   { id: 'integrations', label: 'Integrations', icon: Plug },
@@ -564,14 +568,15 @@ function SectionTools() {
         <CardHeader><CardTitle className="text-base">Autonomous & Background Tasks</CardTitle></CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           <ul className="list-disc list-inside space-y-1">
+            <li><code className="text-xs bg-muted px-1 rounded">think</code> — Internal reasoning tool. {agentName} uses this to plan multi-step tasks, resolve ambiguity, or analyze tradeoffs before acting. Invoked automatically for complex decisions — output is not shown in chat.</li>
             <li><code className="text-xs bg-muted px-1 rounded">spawn_task</code> — Spawn a background task that runs independently of the current conversation. Useful for long-running operations.</li>
-            <li><code className="text-xs bg-muted px-1 rounded">schedule_task</code> — Create a cron-scheduled task with a standard 5-field cron expression (e.g. <code className="text-xs bg-muted px-1 rounded">0 9 * * 1</code> for every Monday at 9am). One-shot or recurring.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">schedule_task</code> — Create a cron-scheduled task with a standard 5-field cron expression (e.g. <code className="text-xs bg-muted px-1 rounded">0 9 * * 1</code> for every Monday at 9am). Cron times are always interpreted in your profile timezone. One-shot or recurring.</li>
             <li><code className="text-xs bg-muted px-1 rounded">list_scheduled_tasks</code> — List all scheduled tasks with their next/last run times and enabled status.</li>
             <li><code className="text-xs bg-muted px-1 rounded">delete_scheduled_task</code> — Remove a scheduled task by ID.</li>
             <li><code className="text-xs bg-muted px-1 rounded">memory_save</code> / <code className="text-xs bg-muted px-1 rounded">memory_search</code> / <code className="text-xs bg-muted px-1 rounded">memory_delete</code> — Persist, retrieve, and remove information across conversations</li>
             <li><code className="text-xs bg-muted px-1 rounded">list_output_templates</code> — Look up configured output templates by name. Used automatically when you ask {agentName} to "use the [name] template" in a conversation.</li>
           </ul>
-          <p className="mt-2">Scheduled tasks survive server restarts and are managed from Settings → Monitoring → Scheduled Tasks. When multiple tools are needed in a single turn, {agentName} executes them in parallel for faster results.</p>
+          <p className="mt-2">Scheduled tasks survive server restarts and are managed from the <em>Workflows</em> page or Settings → Monitoring. When multiple tools are needed in a single turn, {agentName} executes them in parallel for faster results.</p>
         </CardContent>
       </Card>
 
@@ -585,6 +590,153 @@ function SectionTools() {
           </ul>
           <p className="mt-2">When a bot finishes (<code className="text-xs bg-muted px-1 rounded">bot.done</code>) {agentName} automatically fetches the transcript, generates an AI summary, and creates a Notion entry. Fatal bot failures (<code className="text-xs bg-muted px-1 rounded">bot.fatal</code>) are logged to the Tool Error Log in System Monitor.</p>
           <p className="mt-1 text-xs text-muted-foreground/70">Transcripts are retrieved from the Recall recordings download URL — the legacy <code className="text-xs bg-muted px-1 rounded">/transcript/</code> endpoint is not used.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionSkills() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Skills</h2>
+      <p className="text-muted-foreground">
+        Skills are higher-level behaviors that combine tools with context, guidelines, and prompting.
+        Unlike tools (which are atomic on/off capabilities), a skill tells {agentName} <em>how</em> to approach
+        a class of tasks — what to prioritize, what to avoid, and what patterns to follow.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Tools vs Skills</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-2">
+          <p><strong>Tools</strong> are atomic capabilities — what {agentName} can do. Each tool can be individually enabled or disabled in <em>Settings &gt; Tools &gt; Agent Tools</em>.</p>
+          <p><strong>Skills</strong> are composed behaviors — how {agentName} does it. A skill may reference one or many tools and adds context, guidelines, and prompt-injection to shape behavior reliably.</p>
+          <p>Both are managed from separate settings pages: <em>Settings &gt; Tools</em> for tools, <em>Settings &gt; Skills</em> for skills.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Skill Types</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-2">
+          <ul className="list-disc list-inside space-y-1">
+            <li><strong>Prompt-Injection</strong> — The skill's instructions are injected directly into every {agentName} system prompt. Enables persistent behavioral patterns across all conversations.</li>
+            <li><strong>Info</strong> — Display-only entry in the skills list. Used for documenting built-in tool groups without affecting the system prompt.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Built-in Anthropic Skills</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <p className="mb-3">15 skills based on Anthropic's research into reliable agent behavior are pre-installed and enabled by default:</p>
+          <div className="space-y-3">
+            <div>
+              <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-1">Memory</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li><strong>Memory Protocol</strong> — Always searches memory before responding; saves key facts after each task.</li>
+                <li><strong>Contextual Retrieval</strong> — Uses semantic search to retrieve relevant context from past sessions.</li>
+                <li><strong>Structured Note-taking</strong> — Saves multi-part task state as structured notes so work survives interruptions.</li>
+                <li><strong>Reflect, Abstract & Generalize</strong> — After complex tasks, distills reusable patterns and saves them as procedures.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-1">Tool Use</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li><strong>Think Before Acting</strong> — Uses the <code className="text-xs bg-muted px-1 rounded">think</code> tool to reason through complex multi-step decisions before executing.</li>
+                <li><strong>Parallel Tool Calling</strong> — Runs independent tools simultaneously (e.g. calendar + email in a single turn) for faster results.</li>
+                <li><strong>Tool Description Engineering</strong> — Ensures tools are used correctly by understanding when each tool is appropriate and when it isn't.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-1">Reliability</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li><strong>Hallucination Prevention</strong> — Grounds every factual claim in verified tool results or memory; never invents data.</li>
+                <li><strong>Pre-Response Verification</strong> — Checks response completeness against the original request before delivering.</li>
+                <li><strong>Compaction Persistence</strong> — Saves progress state before context compression so long tasks resume correctly.</li>
+                <li><strong>Action vs Research Mode</strong> — Classifies requests as ACTION (execute immediately) or RESEARCH (gather info first) to avoid premature changes.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-1">Orchestration</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li><strong>Agentic Loop Control</strong> — Monitors its own loop depth; avoids runaway recursion.</li>
+                <li><strong>Multi-Agent Orchestration</strong> — Delegates domain-specific subtasks to specialized subagents for complex workflows.</li>
+                <li><strong>Evaluator-Optimizer Loop</strong> — After completing a task with an output template, evaluates the output against the template requirements and self-corrects if sections are missing.</li>
+                <li><strong>Workflow Trigger</strong> — Teaches {agentName} to trigger scheduled workflows on-demand using <code className="text-xs bg-muted px-1 rounded">list_scheduled_tasks</code>.</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Creating Custom Skills</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-2">
+          <p>Go to <em>Settings &gt; Skills</em> and click <strong>Add Skill</strong>.</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li>Set <strong>Type</strong> to <em>Prompt-Injection</em> if you want to inject behavioral instructions into every session.</li>
+            <li>Write your <strong>Instructions</strong> — be specific about when the skill applies and what {agentName} should do.</li>
+            <li>Enable/disable skills without deleting them using the toggle.</li>
+          </ul>
+          <p>Custom skills are ideal for domain-specific procedures: "Always format client proposals with these sections…", "When discussing pricing, always check GHL first…"</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionWorkflows() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Workflows</h2>
+      <p className="text-muted-foreground">
+        The Workflows page shows your scheduled cron tasks with their step-by-step breakdowns, outputs,
+        and run history. Access it from the main navigation.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">What Workflows Are</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-2">
+          <p>Workflows are named recurring tasks that {agentName} runs on a schedule. Each workflow is backed by a cron job and includes:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Steps</strong> — The individual actions {agentName} performs (check calendar, read email, update Notion, send brief, etc.)</li>
+            <li><strong>Outputs</strong> — What the workflow produces (email, Notion page update, SMS, etc.)</li>
+            <li><strong>Schedule</strong> — The cron expression shown in plain language (e.g. "Weekdays at 7:00 AM")</li>
+            <li><strong>Last / Next Run</strong> — Run history shown in your profile timezone</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Run Now</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-2">
+          <p>Every workflow card has a <strong>Run Now</strong> (▶) button. Clicking it triggers the workflow immediately as a one-off run — it does not change the next scheduled run time.</p>
+          <p>Useful for testing your workflow config, re-running after a failure, or getting an on-demand brief outside of schedule.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Creating Workflows</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-2">
+          <p>Workflows are created in two ways:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Via chat</strong> — Tell {agentName}: <em>"Schedule a Morning Brief every weekday at 7 AM"</em>. {agentName} will use <code className="text-xs bg-muted px-1 rounded">schedule_task</code> to create the cron job and attach a prompt defining what to do each run.</li>
+            <li><strong>Via Monitoring</strong> — Go to <em>Settings &gt; Monitoring &gt; Scheduled Tasks</em> for direct management of all cron jobs.</li>
+          </ul>
+          <p>All cron times are stored and executed in your profile timezone. The schedule is shown in plain language on the workflow card.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Managing Workflows</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          <ul className="list-disc list-inside space-y-1">
+            <li>Enable/disable individual workflows without deleting them.</li>
+            <li>Delete a workflow from the Monitoring → Scheduled Tasks page.</li>
+            <li>Ask {agentName}: <em>"List my scheduled tasks"</em> or <em>"Delete the Morning Brief workflow"</em>.</li>
+          </ul>
         </CardContent>
       </Card>
     </div>
@@ -682,12 +834,18 @@ function SectionSettings() {
               </ul>
             </div>
             <div>
-              <p className="font-semibold text-foreground">Tools &amp; Skills</p>
+              <p className="font-semibold text-foreground">Tools</p>
               <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
-                <li><strong>Tool Policies &amp; Release Notes</strong> — Control access to tools and publish updates.</li>
-                <li><strong>Skills</strong> — Enable and configure agent skills like Deep Research, code execution, etc.</li>
-                <li><strong>Trigger Rules</strong> — Map phrases to tools for deterministic routing.</li>
+                <li><strong>Agent Tools</strong> — Enable or disable individual tools. Tools are atomic capabilities — what the agent can do.</li>
+                <li><strong>Tool Policies</strong> — Control access to tools and publish release notes.</li>
                 <li><strong>MCP Servers</strong> — Connect external tool servers via the Model Context Protocol.</li>
+                <li><strong>Trigger Rules</strong> — Map phrases to tools and skills for deterministic routing.</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Skills</p>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                <li><strong>Skills</strong> — Enable and configure agent skills. Skills compose tools with context and prompting to define reliable behaviors. 15 built-in Anthropic research skills are pre-installed; custom skills can be added.</li>
               </ul>
             </div>
             <div>
@@ -823,10 +981,13 @@ function SectionHeartbeat() {
           <ol className="list-decimal list-inside space-y-2">
             <li>Go to <em>Settings &gt; Heartbeat</em> and enable the scheduler.</li>
             <li>Set the interval (e.g., every 15 or 30 minutes).</li>
-            <li>Define scan items — what {agentName} should check each tick.</li>
+            <li>Define scan items — what {agentName} should check each tick. Each item can be individually toggled on/off; only enabled items appear in the heartbeat output.</li>
             <li>Choose a delivery channel — <strong>In-App</strong> (Heartbeat conversation), <strong>Telegram</strong>, or <strong>SMS</strong> (via GoHighLevel MCP).</li>
             <li>The model used defaults to the platform default model. Override it per-heartbeat if needed.</li>
           </ol>
+          <p className="mt-1 text-xs text-muted-foreground/70">
+            <strong>SMS mode</strong> produces a compact single-line summary (under 160 chars) — e.g. "Working: 2 emails, 1 meeting" or "Heartbeat OK" — to fit SMS constraints. In-App and Telegram channels receive the full multi-section report.
+          </p>
         </CardContent>
       </Card>
 
@@ -1051,6 +1212,8 @@ const SECTION_COMPONENTS: Record<SectionId, () => JSX.Element> = {
   memory: SectionMemory,
   workspace: SectionWorkspace,
   tools: SectionTools,
+  skills: SectionSkills,
+  workflows: SectionWorkflows,
   subagents: SectionSubagents,
   settings: SectionSettings,
   integrations: SectionIntegrations,

@@ -7,6 +7,7 @@
 import { Bot } from 'grammy';
 import type { IStorage } from './storage';
 import { assembleRequest } from './prompt-engine';
+import { buildTimezoneInstruction } from './timezone-context';
 import { runAgentLoop, createFallbackAwareProvider } from './agent';
 import { getDefaultModel, getModelTemperature, getModelConfig } from './ai-models';
 import { scheduleAutoMemory } from './agent/auto-memory';
@@ -314,6 +315,13 @@ async function handleMessage(storage: IStorage, ctx: any, telegramModel: string 
       }
     } catch (e) {
       console.error('[telegram] Failed to load knowledge items:', e);
+    }
+
+    // Always inject timezone — non-negotiable regardless of personalization toggle
+    {
+      const tz = (preferences as any)?.timezone as string | undefined;
+      const loc = (preferences as any)?.location as string | undefined;
+      profileParts.unshift(buildTimezoneInstruction(tz || 'UTC', loc));
     }
 
     // User profile + personalization
