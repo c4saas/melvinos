@@ -868,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const settingsData = platformSettings?.data as Record<string, any> | undefined;
     if (settingsData) extraToolContext.platformSettings = settingsData;
 
-    // Inject user timezone and location so all tools use correct time context
+    // Inject user timezone, location, and first name so all tools use correct context
     try {
       const userPrefs = await storage.getUserPreferences(user.id);
       if ((userPrefs as any)?.timezone) {
@@ -877,6 +877,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (settingsData) settingsData.userTimezone = (userPrefs as any).timezone;
       }
       if ((userPrefs as any)?.location) extraToolContext.userLocation = (userPrefs as any).location;
+      // First name for bot naming (e.g. "Austin's Notetaker")
+      if (user.firstName) extraToolContext.userFirstName = user.firstName;
     } catch { /* non-fatal */ }
 
     try {
@@ -6126,16 +6128,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const region = recall.region || 'us-west-2';
       const service = new RecallService(recall.apiKey, region);
 
-      // Calendar V2: pass OAuth credentials directly — no intermediate access-token exchange
+      // Derive bot name from user's first name: "Austin's Notetaker"
+      const userRecord = await storage.getUser((req as any).user.id);
+      const firstName = userRecord?.firstName?.trim() || null;
+      const botName = firstName ? `${firstName}'s Notetaker` : 'Notetaker';
+
+      // Calendar V2: pass OAuth credentials + default_bot_config so Recall automatically
+      // schedules bots for ALL calendar events that have a meeting URL (Zoom, Meet, Teams, etc.)
+      // without this, bots must be manually scheduled per event.
       const calendar = await service.createCalendar(
         recallPlatform,
         oauthTokens.refreshToken,
         googleConfig.clientId,
         googleConfig.clientSecret,
+        { bot_name: botName },
       );
       res.status(201).json({ calendar });
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to connect calendar', detail: error.message });
+    }
+  });
+
+  // Enable auto-join on an already-connected calendar by patching its default_bot_config
+  app.patch('/api/integrations/recall/calendar/:calendarId/auto-join', requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getPlatformSettings();
+      const recall = (settings?.data as any)?.integrations?.recall;
+      if (!recall?.enabled || !recall?.apiKey) return res.status(401).json({ error: 'Recall AI not configured' });
+      const { RecallService } = await import('./recall-service');
+      const service = new RecallService(recall.apiKey, recall.region || 'us-west-2');
+      const enabled = req.body?.enabled !== false; // default true
+      const userRecord = await storage.getUser((req as any).user.id);
+      const firstName = userRecord?.firstName?.trim() || null;
+      const botName = firstName ? `${firstName}'s Notetaker` : 'Notetaker';
+      const calendar = await service.updateCalendar(req.params.calendarId, {
+        default_bot_config: enabled ? { bot_name: botName } : null,
+      });
+      res.json({ calendar });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to update calendar', detail: error.message });
     }
   });
 
@@ -6179,7 +6210,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { RecallService } = await import('./recall-service');
       const region = recall.region || 'us-west-2';
       const service = new RecallService(recall.apiKey, region);
-      const event = await service.scheduleEventBot(req.params.eventId, 'Melvin');
+      const userRecord = await storage.getUser((req as any).user.id);
+      const firstName = userRecord?.firstName?.trim() || null;
+      const botName = firstName ? `${firstName}'s Notetaker` : 'Notetaker';
+      const event = await service.scheduleEventBot(req.params.eventId, botName);
       res.json({ event });
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to schedule bot', detail: error.message });

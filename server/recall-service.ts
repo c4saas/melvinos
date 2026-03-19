@@ -268,22 +268,43 @@ export class RecallService {
    * Connect a calendar (Calendar V2).
    * In API v2 there is no separate access-token exchange step —
    * OAuth credentials are passed directly to POST /api/v2/calendars/.
+   *
+   * Pass defaultBotConfig to enable automatic bot scheduling for ALL events
+   * with a meeting URL (Zoom, Meet, Teams, Webex). Without it, bots must be
+   * scheduled manually per event.
    */
   async createCalendar(
     platform: string,
     oauthRefreshToken: string,
     oauthClientId: string,
     oauthClientSecret: string,
+    defaultBotConfig?: Record<string, unknown>,
   ): Promise<RecallCalendar> {
+    const body: Record<string, unknown> = {
+      platform,
+      oauth_client_id: oauthClientId,
+      oauth_client_secret: oauthClientSecret,
+      oauth_refresh_token: oauthRefreshToken,
+    };
+    if (defaultBotConfig) body.default_bot_config = defaultBotConfig;
     const res = await fetch(`${this.baseUrlV2}/calendars/`, {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({
-        platform,
-        oauth_client_id: oauthClientId,
-        oauth_client_secret: oauthClientSecret,
-        oauth_refresh_token: oauthRefreshToken,
-      }),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Recall API error ${res.status}: ${await res.text()}`);
+    return res.json();
+  }
+
+  /**
+   * Update an existing calendar's default_bot_config (or other settings).
+   * Use this to enable auto-join on a calendar that was connected without it.
+   */
+  async updateCalendar(calendarId: string, updates: Record<string, unknown>): Promise<RecallCalendar> {
+    const res = await fetch(`${this.baseUrlV2}/calendars/${calendarId}/`, {
+      method: 'PATCH',
+      headers: this.headers(),
+      body: JSON.stringify(updates),
     });
     if (!res.ok) throw new Error(`Recall API error ${res.status}: ${await res.text()}`);
     return res.json();

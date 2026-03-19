@@ -14,7 +14,7 @@ export const recallCreateBotTool: ToolDefinition = {
       },
       bot_name: {
         type: 'string',
-        description: 'Display name for the bot in the meeting (default: "Melvin")',
+        description: 'Display name for the bot in the meeting. Defaults to "[FirstName]\'s Notetaker" from the user profile.',
       },
       join_at: {
         type: 'string',
@@ -26,8 +26,12 @@ export const recallCreateBotTool: ToolDefinition = {
 
   async execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
     const meetingUrl = String(args.meeting_url ?? '');
-    const botName = args.bot_name ? String(args.bot_name) : 'Melvin';
     const joinAt = args.join_at ? String(args.join_at) : undefined;
+
+    // Derive default bot name from user profile first name
+    const firstName = (context as any).userFirstName as string | undefined;
+    const defaultBotName = firstName ? `${firstName}'s Notetaker` : 'Notetaker';
+    const botName = args.bot_name ? String(args.bot_name) : defaultBotName;
 
     if (!meetingUrl.trim()) {
       return { output: '', error: 'Meeting URL is required.' };

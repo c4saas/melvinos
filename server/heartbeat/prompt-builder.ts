@@ -98,6 +98,11 @@ export async function runHeartbeatCycle(
     }
   } catch { /* ignore */ }
 
+  // Inject user timezone, location, and first name
+  extraToolContext.userTimezone = userTimezone;
+  if (userLocation) extraToolContext.userLocation = userLocation;
+  if (melvinUser.firstName) extraToolContext.userFirstName = melvinUser.firstName;
+
   try {
     const googleToken = await storage.getOAuthToken(melvinUser.id, 'google');
     if (googleToken) {

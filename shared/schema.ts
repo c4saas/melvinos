@@ -131,6 +131,7 @@ export const integrationSettingsSchema = z.object({
     enabled: z.boolean().default(false),
     apiKey: z.string().nullable().default(null),
     region: z.string().default('us-west-2'),
+    meetingsDatabaseId: z.string().nullable().default(null),
   }).default({}),
   telegram: z.object({
     enabled: z.boolean().default(false),

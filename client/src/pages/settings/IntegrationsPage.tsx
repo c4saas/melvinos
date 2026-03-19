@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect, useState } from 'react';
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAdminSettings } from '@/hooks/use-admin-settings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,6 +61,7 @@ const getIntegrations = (agentName: string): IntegrationDef[] => [
     fields: [
       { fieldKey: 'apiKey', label: 'API Key', placeholder: 'recall_...', type: 'password' },
       { fieldKey: 'region', label: 'Region', placeholder: 'us-west-2 (default)' },
+      { fieldKey: 'meetingsDatabaseId', label: 'Notion Meetings Database ID', placeholder: 'Notion DB ID for meeting notes (optional)' },
     ],
   },
   {
@@ -178,6 +179,38 @@ function RecallPanel() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recall-events'] }),
   });
 
+  // Track which calendars have auto-join enabled locally — Recall's list endpoint
+  // doesn't reliably return default_bot_config so we can't infer it from the response.
+  const [autoJoinCalendars, setAutoJoinCalendars] = useState<Set<string>>(new Set());
+
+  // Seed autoJoinCalendars from server data when calendars load (if field is present)
+  const prevCalendarIds = useRef<string>('');
+  useEffect(() => {
+    if (!calendarData?.calendars) return;
+    const ids = calendarData.calendars.map((c: any) => c.id).join(',');
+    if (ids === prevCalendarIds.current) return;
+    prevCalendarIds.current = ids;
+    setAutoJoinCalendars(prev => {
+      const next = new Set(prev);
+      for (const cal of calendarData.calendars) {
+        if (cal.default_bot_config) next.add(cal.id);
+      }
+      return next;
+    });
+  }, [calendarData]);
+
+  const enableAutoJoinMutation = useMutation({
+    mutationFn: async (calendarId: string) => {
+      const r = await apiRequest('PATCH', `/api/integrations/recall/calendar/${calendarId}/auto-join`, { enabled: true });
+      if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Failed to enable auto-join'); }
+      return r.json();
+    },
+    onSuccess: (_data, calendarId) => {
+      setAutoJoinCalendars(prev => new Set([...prev, calendarId]));
+      queryClient.invalidateQueries({ queryKey: ['recall-events'] });
+    },
+  });
+
   const [connectError, setConnectError] = useState<string | null>(null);
 
   const handleConnect = async (platform: string) => {
@@ -235,26 +268,43 @@ function RecallPanel() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Loading…</div>
         ) : calendars.length > 0 ? (
           <div className="divide-y rounded-lg border">
-            {calendars.map((cal: any) => (
-              <div key={cal.id} className="flex items-center justify-between px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs font-medium capitalize">{cal.platform}</p>
-                    {cal.email && <p className="text-[10px] text-muted-foreground">{cal.email}</p>}
+            {calendars.map((cal: any) => {
+              const hasAutoJoin = autoJoinCalendars.has(cal.id) || Boolean(cal.default_bot_config);
+              return (
+                <div key={cal.id} className="flex items-center justify-between px-3 py-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs font-medium capitalize">{cal.platform?.replace('_calendar', '') ?? cal.platform}</p>
+                      {cal.email && <p className="text-[10px] text-muted-foreground">{cal.email}</p>}
+                    </div>
+                    <Badge variant="default" className="bg-green-600 text-[10px] px-1.5 py-0">connected</Badge>
+                    {hasAutoJoin
+                      ? <Badge variant="default" className="bg-blue-600 text-[10px] px-1.5 py-0 gap-1"><Video className="h-2.5 w-2.5" />auto-join on</Badge>
+                      : (
+                        <Button
+                          variant="outline" size="sm" className="h-5 px-1.5 text-[10px] gap-1"
+                          disabled={enableAutoJoinMutation.isPending}
+                          onClick={() => enableAutoJoinMutation.mutate(cal.id)}
+                          title="Enable automatic bot joining for all meetings"
+                        >
+                          {enableAutoJoinMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Video className="h-2.5 w-2.5" />}
+                          Enable auto-join
+                        </Button>
+                      )
+                    }
                   </div>
-                  <Badge variant="default" className="bg-green-600 text-[10px] px-1.5 py-0">connected</Badge>
+                  <Button
+                    variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    disabled={disconnectMutation.isPending}
+                    onClick={() => disconnectMutation.mutate(cal.id)}
+                    title="Disconnect calendar"
+                  >
+                    <Unlink className="h-3 w-3" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                  disabled={disconnectMutation.isPending}
-                  onClick={() => disconnectMutation.mutate(cal.id)}
-                  title="Disconnect calendar"
-                >
-                  <Unlink className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">No calendars connected. Connect one below to enable auto-join.</p>

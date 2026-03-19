@@ -584,12 +584,12 @@ function SectionTools() {
         <CardHeader><CardTitle className="text-base">Meeting Transcripts (Recall AI)</CardTitle></CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           <ul className="list-disc list-inside space-y-1">
-            <li><code className="text-xs bg-muted px-1 rounded">recall_search</code> — Search across meeting transcripts</li>
-            <li><code className="text-xs bg-muted px-1 rounded">recall_meetings</code> — List recent recorded meetings</li>
-            <li><code className="text-xs bg-muted px-1 rounded">recall_create_bot</code> — Deploy a bot to record a meeting immediately or on a schedule</li>
+            <li><code className="text-xs bg-muted px-1 rounded">recall_search</code> — Search across meeting transcripts by keyword</li>
+            <li><code className="text-xs bg-muted px-1 rounded">recall_meetings</code> — List recent recorded meetings with status</li>
+            <li><code className="text-xs bg-muted px-1 rounded">recall_create_bot</code> — Send a bot to a specific meeting URL immediately or at a scheduled time</li>
           </ul>
-          <p className="mt-2">When a bot finishes (<code className="text-xs bg-muted px-1 rounded">bot.done</code>) {agentName} automatically fetches the transcript, generates an AI summary, and creates a Notion entry. Fatal bot failures (<code className="text-xs bg-muted px-1 rounded">bot.fatal</code>) are logged to the Tool Error Log in System Monitor.</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">Transcripts are retrieved from the Recall recordings download URL — the legacy <code className="text-xs bg-muted px-1 rounded">/transcript/</code> endpoint is not used.</p>
+          <p className="mt-2"><strong className="text-foreground">Auto-join:</strong> When Google Calendar is connected via Recall, {agentName} automatically joins every meeting that has a video link (Zoom, Google Meet, Teams, Webex) — 2 minutes before start. No manual intervention needed. Configure in <em>Settings &gt; Integrations &gt; Recall AI</em>.</p>
+          <p className="mt-2">When a bot finishes (<code className="text-xs bg-muted px-1 rounded">bot.done</code>) {agentName} automatically fetches the transcript, generates an AI summary, and creates a Notion entry in your configured Meetings database. Fatal bot failures (<code className="text-xs bg-muted px-1 rounded">bot.fatal</code>) are logged to the Tool Error Log in System Monitor.</p>
         </CardContent>
       </Card>
     </div>
@@ -926,15 +926,33 @@ function SectionIntegrations() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Recall AI (Meeting Transcripts)</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Recall AI (Meeting Recording & Auto-join)</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>Record and search meeting transcripts. When a bot finishes, {agentName} automatically generates a summary and saves it to Notion.</p>
-          <ol className="list-decimal list-inside space-y-1">
-            <li>Enter your <strong>Recall API Key</strong> in <em>Settings &gt; Integrations</em>.</li>
-            <li>Optionally configure the region (default: us-west-2).</li>
+          <p>{agentName} uses Recall AI to automatically record meetings, transcribe them, and save AI-generated summaries to Notion — all without any manual steps once configured.</p>
+
+          <p className="font-medium text-foreground">Initial setup</p>
+          <ol className="list-decimal list-inside space-y-1.5">
+            <li>Enter your <strong>Recall API Key</strong> in <em>Settings &gt; Integrations &gt; Recall AI</em>.</li>
+            <li>Optionally set your <strong>region</strong> (default: <code className="text-xs bg-muted px-1 rounded">us-west-2</code>).</li>
+            <li>Add your <strong>Notion Meetings Database ID</strong> so transcripts and summaries are automatically saved after each meeting.</li>
             <li>In the <a href="https://us-west-2.recall.ai/dashboard/webhooks" className="underline" target="_blank" rel="noopener noreferrer">Recall dashboard → Webhooks</a>, add a webhook pointing to <code className="text-xs bg-muted px-1 rounded">{`${window.location.origin}/api/webhooks/recall`}</code> with events <strong>bot.done</strong> and <strong>bot.fatal</strong>.</li>
-            <li>Optionally set <code className="text-xs bg-muted px-1 rounded">RECALL_WEBHOOK_SECRET</code> in server env to enable HMAC signature verification on incoming webhooks.</li>
           </ol>
+
+          <p className="font-medium text-foreground">Automatic calendar-based joining</p>
+          <ol className="list-decimal list-inside space-y-1.5">
+            <li>Make sure your Google account is connected in your profile (<em>Avatar → Account → Connected Accounts</em>).</li>
+            <li>In <em>Settings &gt; Integrations &gt; Recall AI</em>, click <strong>Connect Google Calendar</strong>. This links your calendar to Recall with auto-join enabled — {agentName} will join every meeting with a video link (Zoom, Google Meet, Teams, Webex) 2 minutes before it starts.</li>
+            <li>If your calendar was already connected before auto-join was added, click <strong>Enable auto-join</strong> on the connected calendar card to activate it.</li>
+          </ol>
+
+          <p className="font-medium text-foreground">What happens after a meeting</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>Recall sends a <code className="text-xs bg-muted px-1 rounded">bot.done</code> webhook when the recording finishes.</li>
+            <li>{agentName} fetches the transcript, generates an AI summary (speakers, key decisions, action items), and creates a Notion page in your Meetings database.</li>
+            <li>Bot failures (<code className="text-xs bg-muted px-1 rounded">bot.fatal</code>) are logged to the Tool Error Log in System Monitor.</li>
+          </ul>
+
+          <p className="text-xs text-muted-foreground/70 mt-1">Transcripts may take up to 2 minutes after the meeting ends to become available. {agentName} polls automatically with retries.</p>
         </CardContent>
       </Card>
 
