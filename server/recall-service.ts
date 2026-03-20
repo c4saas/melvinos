@@ -107,10 +107,23 @@ export class RecallService {
    *  Note: bot.status_change webhooks must be configured at the workspace level
    *  in the Recall dashboard — they are no longer supported as per-bot realtime_endpoints.
    */
-  async createBot(meetingUrl: string, botName?: string, joinAt?: string): Promise<RecallBot> {
-    const body: Record<string, unknown> = { meeting_url: meetingUrl };
+  async createBot(meetingUrl: string, botName?: string, joinAt?: string, webhookUrl?: string): Promise<RecallBot> {
+    const body: Record<string, unknown> = {
+      meeting_url: meetingUrl,
+      recording_config: {
+        transcript: {
+          provider: {
+            recallai_streaming: {
+              language_code: 'en',
+              mode: 'prioritize_low_latency',
+            },
+          },
+        },
+      },
+    };
     if (botName) body.bot_name = botName;
     if (joinAt) body.join_at = joinAt;
+    if (webhookUrl) body.webhook_url = webhookUrl;
 
     const res = await fetch(`${this.baseUrl}/bot/`, {
       method: 'POST',
