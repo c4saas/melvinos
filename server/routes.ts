@@ -3460,6 +3460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let agentToolUsage: Array<{ model: string; promptTokens: number; completionTokens: number; totalTokens: number }> | undefined;
         const agentToolCalls: Array<{ tool: string; args: Record<string, unknown>; output: string; durationMs: number }> = [];
         let agentMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
+        let userMsgSaved = false;
 
         try {
           const platformSettingsForFallback = await storage.getPlatformSettings();
@@ -3683,7 +3684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           // Persist user message BEFORE the agent starts — survives refresh/timeout
-          const userMsgSaved = await persistUserMessageEarly({
+          userMsgSaved = await persistUserMessageEarly({
             chatId: prepared.chatId,
             content: prepared.lastMessage.content,
             metadata: prepared.metadata,
