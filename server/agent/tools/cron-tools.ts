@@ -20,7 +20,7 @@ export const scheduleTaskTool: ToolDefinition = {
     'The cron expression is interpreted in the user\'s local timezone (from profile settings). ' +
     'Common patterns: "0 9 * * 1-5" = weekdays 9 AM, "30 7 * * *" = daily 7:30 AM. ' +
     'DO NOT schedule in UTC -- always use the user\'s local time.',
-  inputSchema: {
+  parameters: {
     type: 'object',
     properties: {
       name: { type: 'string', description: 'Short name for this job' },
@@ -76,7 +76,7 @@ export const scheduleTaskTool: ToolDefinition = {
 export const listScheduledTasksTool: ToolDefinition = {
   name: 'list_scheduled_tasks',
   description: 'List all scheduled cron jobs.',
-  inputSchema: { type: 'object', properties: {} },
+  parameters: { type: 'object', properties: {} },
   async execute(_input: unknown, context: ToolContext): Promise<ToolResult> {
     const userId = context.userId;
     if (!userId) return { output: 'No user context.' };
@@ -106,7 +106,7 @@ const deleteScheduledTaskSchema = z.object({
 export const deleteScheduledTaskTool: ToolDefinition = {
   name: 'delete_scheduled_task',
   description: 'Delete (cancel) a scheduled cron job by its ID.',
-  inputSchema: {
+  parameters: {
     type: 'object',
     properties: {
       id: { type: 'string', description: 'Job ID returned by schedule_task or list_scheduled_tasks' },

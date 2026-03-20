@@ -4,6 +4,32 @@ import { saveToWorkspace, timestampedName } from './workspace-save';
 const TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_SIZE = 1024 * 1024; // 1 MB
 
+const BLOCKED_HOSTNAMES = new Set([
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  '[::1]',
+  '::1',
+  '169.254.169.254',       // cloud metadata endpoint
+  'metadata.google.internal',
+]);
+
+function isPrivateIP(hostname: string): boolean {
+  // Strip IPv6 brackets
+  const h = hostname.replace(/^\[|\]$/g, '');
+  if (BLOCKED_HOSTNAMES.has(h) || BLOCKED_HOSTNAMES.has(hostname)) return true;
+  // Check private CIDR ranges
+  const parts = h.split('.').map(Number);
+  if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+    if (parts[0] === 10) return true;                                    // 10.0.0.0/8
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true; // 172.16.0.0/12
+    if (parts[0] === 192 && parts[1] === 168) return true;              // 192.168.0.0/16
+    if (parts[0] === 169 && parts[1] === 254) return true;              // 169.254.0.0/16
+    if (parts[0] === 127) return true;                                   // 127.0.0.0/8
+  }
+  return false;
+}
+
 function stripHtmlTags(html: string): string {
   // Remove script/style blocks entirely
   let text = html.replace(/<script[\s\S]*?<\/script>/gi, '');
@@ -62,6 +88,10 @@ export const webFetchTool: ToolDefinition = {
 
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       return { output: '', error: 'Only HTTP and HTTPS URLs are supported' };
+    }
+
+    if (isPrivateIP(parsed.hostname)) {
+      return { output: '', error: 'Fetching internal/private network addresses is not allowed' };
     }
 
     try {

@@ -47,7 +47,7 @@ export const notionSearchTool: ToolDefinition = {
       if (type === 'page') {
         searchParams.filter = { property: 'object', value: 'page' };
       } else if (type === 'database') {
-        searchParams.filter = { property: 'object', value: 'data_source' };
+        searchParams.filter = { property: 'object', value: 'database' };
       }
 
       const response = await client.search(searchParams);

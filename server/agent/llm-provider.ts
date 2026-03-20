@@ -6,6 +6,31 @@ import type { LLMProvider } from './agent-loop';
 import type { AgentConfig } from './types';
 import type { OpenAITool } from './tool-registry';
 
+// SDK client caches — reuse connections across calls within same process
+const openaiClientCache = new Map<string, OpenAI>();
+const anthropicClientCache = new Map<string, Anthropic>();
+
+function getCachedOpenAI(apiKey: string, baseURL?: string): OpenAI {
+  const cacheKey = `${apiKey}::${baseURL || ''}`;
+  let client = openaiClientCache.get(cacheKey);
+  if (!client) {
+    const opts: Record<string, any> = { apiKey };
+    if (baseURL) opts.baseURL = baseURL;
+    client = new OpenAI(opts);
+    openaiClientCache.set(cacheKey, client);
+  }
+  return client;
+}
+
+function getCachedAnthropic(apiKey: string): Anthropic {
+  let client = anthropicClientCache.get(apiKey);
+  if (!client) {
+    client = new Anthropic({ apiKey });
+    anthropicClientCache.set(apiKey, client);
+  }
+  return client;
+}
+
 interface LLMMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
@@ -92,15 +117,15 @@ function createOpenAIProvider(storage: IStorage): LLMProvider {
 
       const apiKey = await resolveApiKey(storage, config.userId, modelConfig.provider, config.model);
 
-      const clientOptions: Record<string, any> = { apiKey };
+      let baseURL: string | undefined;
       if (modelConfig.provider === 'groq') {
-        clientOptions.baseURL = 'https://api.groq.com/openai/v1';
+        baseURL = 'https://api.groq.com/openai/v1';
       } else if (modelConfig.provider === 'google') {
-        clientOptions.baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
+        baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
       } else if (modelConfig.provider === 'ollama') {
-        clientOptions.baseURL = modelConfig.endpoint || 'https://ollama.com/v1';
+        baseURL = modelConfig.endpoint || 'https://ollama.com/v1';
       }
-      const client = new OpenAI(clientOptions);
+      const client = getCachedOpenAI(apiKey, baseURL);
 
       const temperature = config.temperature ?? getModelTemperature(config.model);
       const isOllama = modelConfig.provider === 'ollama';
@@ -152,15 +177,15 @@ function createOpenAIProvider(storage: IStorage): LLMProvider {
 
       const apiKey = await resolveApiKey(storage, config.userId, modelConfig.provider, config.model);
 
-      const clientOptions: Record<string, any> = { apiKey };
+      let baseURL: string | undefined;
       if (modelConfig.provider === 'groq') {
-        clientOptions.baseURL = 'https://api.groq.com/openai/v1';
+        baseURL = 'https://api.groq.com/openai/v1';
       } else if (modelConfig.provider === 'google') {
-        clientOptions.baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
+        baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
       } else if (modelConfig.provider === 'ollama') {
-        clientOptions.baseURL = modelConfig.endpoint || 'https://ollama.com/v1';
+        baseURL = modelConfig.endpoint || 'https://ollama.com/v1';
       }
-      const client = new OpenAI(clientOptions);
+      const client = getCachedOpenAI(apiKey, baseURL);
 
       const temperature = config.temperature ?? getModelTemperature(config.model);
       const isOllama = modelConfig.provider === 'ollama';
@@ -216,7 +241,7 @@ function createAnthropicProvider(storage: IStorage): LLMProvider {
       if (!modelConfig) throw new Error(`Unknown model: ${config.model}`);
 
       const apiKey = await resolveApiKey(storage, config.userId, 'anthropic', config.model);
-      const client = new Anthropic({ apiKey });
+      const client = getCachedAnthropic(apiKey);
 
       const systemMessage = messages.find((m) => m.role === 'system')?.content || '';
 
@@ -298,7 +323,7 @@ function createAnthropicProvider(storage: IStorage): LLMProvider {
       if (!modelConfig) throw new Error(`Unknown model: ${config.model}`);
 
       const apiKey = await resolveApiKey(storage, config.userId, 'anthropic', config.model);
-      const client = new Anthropic({ apiKey });
+      const client = getCachedAnthropic(apiKey);
 
       const systemMessage = messages.find((m) => m.role === 'system')?.content || '';
       const anthropicMessages = convertToAnthropicMessages(messages);

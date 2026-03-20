@@ -10,6 +10,7 @@
 import type { IStorage } from '../storage';
 import { createFallbackAwareProvider } from './index';
 import { getDefaultModel } from '../ai-models';
+import { indexMemory } from '../qdrant-memory';
 
 /**
  * Simple word-overlap similarity (Jaccard on word sets).
@@ -152,13 +153,25 @@ async function extractAndSaveMemories(
 
       if (isDuplicate) continue;
 
-      await storage.createAgentMemory({
+      const memory = await storage.createAgentMemory({
         content,
         category,
         source: `auto:${chatId}`,
         relevanceScore: Math.min(95, Math.max(70, Math.round(rawScore))),
       });
       saved++;
+
+      // Index in Qdrant for semantic search (fire-and-forget)
+      try {
+        const settings = await storage.getPlatformSettings();
+        const openaiKey = (settings.data as any)?.apiProviders?.openai?.defaultApiKey
+          || process.env.OPENAI_API_KEY;
+        if (openaiKey) {
+          indexMemory(memory.id, content, category, openaiKey).catch((err) => {
+            console.error('[auto-memory] Qdrant index failed:', err instanceof Error ? err.message : err);
+          });
+        }
+      } catch { /* non-critical — memory saved to PG regardless */ }
     }
 
     if (saved > 0) {
