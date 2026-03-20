@@ -1417,6 +1417,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     authService,
   });
 
+  /**
+   * Persist the user message to DB immediately (before agent starts).
+   * Returns true if the message was saved, false if skipped/failed.
+   */
+  async function persistUserMessageEarly(options: {
+    chatId?: string;
+    content: string;
+    metadata?: z.infer<typeof chatMetadataSchema>;
+    validatedAttachments?: z.infer<typeof attachmentSchema>[];
+    hasAttachments: boolean;
+  }): Promise<boolean> {
+    if (!options.chatId) return false;
+    try {
+      const existingChat = await storage.getChat(options.chatId);
+      if (!existingChat) return false;
+      await storage.createMessage({
+        chatId: options.chatId,
+        role: 'user',
+        content: options.content,
+        attachments: options.hasAttachments ? options.validatedAttachments : undefined,
+        metadata: options.metadata,
+      });
+      return true;
+    } catch (err) {
+      console.error('Failed to persist user message early:', err);
+      return false;
+    }
+  }
+
   async function persistChatMessages(options: {
     chatId?: string;
     userId: string;
@@ -1429,6 +1458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     responseMetadata?: Record<string, unknown>;
     usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
     toolUsage?: Array<{ model: string; promptTokens: number; completionTokens: number; totalTokens: number }>;
+    userMessageAlreadySaved?: boolean;
   }): Promise<void> {
     const {
       chatId,
@@ -1455,13 +1485,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      await storage.createMessage({
-        chatId,
-        role: 'user',
-        content: lastMessageContent,
-        attachments: hasAttachments ? validatedAttachments : undefined,
-        metadata,
-      });
+      // Skip user message if it was already persisted early
+      if (!options.userMessageAlreadySaved) {
+        await storage.createMessage({
+          chatId,
+          role: 'user',
+          content: lastMessageContent,
+          attachments: hasAttachments ? validatedAttachments : undefined,
+          metadata,
+        });
+      }
 
       if (responseContent) {
         await storage.createMessage({
@@ -3648,6 +3681,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           };
 
+          // Persist user message BEFORE the agent starts — survives refresh/timeout
+          const userMsgSaved = await persistUserMessageEarly({
+            chatId: prepared.chatId,
+            content: prepared.lastMessage.content,
+            metadata: prepared.metadata,
+            validatedAttachments: prepared.validatedAttachments,
+            hasAttachments: prepared.hasAttachments,
+          });
+
+          // Wall-clock timeout: abort the agent loop after 5 minutes
+          const AGENT_TIMEOUT_MS = 5 * 60 * 1000;
+          const agentDeadline = Date.now() + AGENT_TIMEOUT_MS;
+
           for await (const event of runAgentLoop(
             {
               model: prepared.model,
@@ -3666,6 +3712,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             extraToolContext,
             handleLiveSubEvent,
           )) {
+            // Enforce wall-clock timeout
+            if (Date.now() > agentDeadline) {
+              agentHadError = true;
+              sendEvent?.('error', { message: 'Agent timed out after 5 minutes' });
+              break;
+            }
             if (connectionClosed) break;
 
             switch (event.type) {
@@ -3722,7 +3774,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const persistedContent = agentFinalContent
           || (agentHadError ? null : hadToolActivity ? null : fallbackContent);
 
-        // Skip persist + done event entirely if agent errored with no output
         if (persistedContent !== null) {
           // ── Evaluator-optimizer: if template validation fails, re-run once ──
           let finalContent = persistedContent;
@@ -3778,6 +3829,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             assistantMetadata.assistantName = prepared.assistantName;
           }
 
+          // Persist assistant response (user message was already saved early)
           await persistChatMessages({
             chatId: prepared.chatId,
             userId: prepared.userId,
@@ -3790,17 +3842,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             responseMetadata: assistantMetadata,
             usage: agentUsage,
             toolUsage: agentToolUsage,
+            userMessageAlreadySaved: userMsgSaved,
           });
 
           // Fire-and-forget memory extraction — never blocks the response
-          if (persistedContent && agentMessages.length > 0) {
+          if (finalContent && agentMessages.length > 0) {
             scheduleAutoMemory(prepared.userId, prepared.chatId, agentMessages, storage);
           }
 
           sendEvent?.('done', {
-            content: persistedContent,
+            content: finalContent,
             metadata: assistantMetadata,
           });
+        } else {
+          // Agent errored with no output — still persist user message and send done
+          // so the client exits loading state and the user's message is not lost
+          await persistChatMessages({
+            chatId: prepared.chatId,
+            userId: prepared.userId,
+            metadata: prepared.metadata,
+            validatedAttachments: prepared.validatedAttachments,
+            hasAttachments: prepared.hasAttachments,
+            lastMessageContent: prepared.lastMessage.content,
+            model: prepared.model,
+            responseContent: null,
+            usage: agentUsage,
+            toolUsage: agentToolUsage,
+            userMessageAlreadySaved: userMsgSaved,
+          });
+          sendEvent?.('done', { content: '', metadata: { agentMode: true, toolCalls: agentToolCalls } });
         }
 
         endConnection();
