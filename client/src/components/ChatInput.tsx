@@ -194,7 +194,7 @@ export function ChatInput({
   isLoading = false,
   placeholder = "Type your message...",
   className,
-  selectedModel = 'compound',
+  selectedModel = '',
   selectedAssistant = null,
   onAssistantChange,
   onOpenKnowledgeDialog,

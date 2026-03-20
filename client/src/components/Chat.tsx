@@ -226,7 +226,7 @@ export function Chat() {
     return window.innerWidth >= 768;
   });
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState('compound');
+  const [selectedModel, setSelectedModel] = useState('');
   const [selectedAssistant, setSelectedAssistant] = useState<AssistantSelection | null>(null);
   const [triggerKnowledgeDialog, setTriggerKnowledgeDialog] = useState(false);
   const [triggerNewProjectDialog, setTriggerNewProjectDialog] = useState(false);

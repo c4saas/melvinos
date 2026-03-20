@@ -225,7 +225,7 @@ export function ChatHeader({
             >
               <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", currentProviderDot)} />
               <span className="truncate font-medium text-foreground/90">
-                {currentModel?.name ?? 'Select model'}
+                {selectedModel ? (currentModel?.name ?? 'Select model') : '\u00A0'}
               </span>
               {!modelSupportsTools && (
                 <Tooltip>
