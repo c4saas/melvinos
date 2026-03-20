@@ -1,7 +1,7 @@
 /**
  * Patch Executor
  *
- * Called when Austin approves a patch proposal via SMS.
+ * Called when the platform owner approves a patch proposal via SMS.
  * Runs Claude Code relay with the stored prompt, then rebuilds + restarts melvinos_app.
  * Reports outcome via SMS.
  */

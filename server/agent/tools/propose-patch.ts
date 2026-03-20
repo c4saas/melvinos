@@ -1,9 +1,9 @@
 /**
  * propose_patch tool
  *
- * Melvin uses this to submit a code fix proposal for Austin's approval.
+ * Submit a code fix proposal for the platform owner's approval.
  * Stores the proposal in DB and sends an SMS with a short approval code.
- * Austin replies "APPROVE XXXXXX" or "REJECT XXXXXX" to act on it.
+ * Owner replies "APPROVE XXXXXX" or "REJECT XXXXXX" to act on it.
  */
 import type { ToolDefinition, ToolResult, ToolContext } from '../tool-registry';
 import { storage } from '../../storage';
@@ -51,7 +51,7 @@ async function sendApprovalSms(text: string, platformSettings: Record<string, an
 export const proposePatchTool: ToolDefinition = {
   name: 'propose_patch',
   description:
-    'Propose a code fix to be reviewed and approved by Austin. Stores the patch proposal in the database and sends an SMS with an approval code. Austin replies "APPROVE XXXXXX" or "REJECT XXXXXX" to act on it. Use this when you detect a real bug or issue in the MelvinOS codebase that you can fix.',
+    'Propose a code fix to be reviewed and approved by the platform owner. Stores the patch proposal in the database and sends an SMS with an approval code. The owner replies "APPROVE XXXXXX" or "REJECT XXXXXX" to act on it. Use this when you detect a real bug or issue in the MelvinOS codebase that you can fix.',
   parameters: {
     type: 'object',
     properties: {
@@ -105,7 +105,7 @@ export const proposePatchTool: ToolDefinition = {
       await sendApprovalSms(smsText, platformSettings);
 
       return {
-        output: `Patch proposal created. Code: ${code}\nID: ${proposal.id}\nSMS sent to Austin for approval.\nTo apply: Austin replies "APPROVE ${code}"\nTo dismiss: Austin replies "REJECT ${code}"`,
+        output: `Patch proposal created. Code: ${code}\nID: ${proposal.id}\nSMS sent for approval.\nTo apply: reply "APPROVE ${code}"\nTo dismiss: reply "REJECT ${code}"`,
       };
     } catch (err: any) {
       return { output: '', error: `Failed to create patch proposal: ${err.message}` };

@@ -86,6 +86,10 @@ export async function populateRoutine(storage: IStorage, userId: string): Promis
   const today = new Date().toISOString().split('T')[0];
   const todayFormatted = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
+  // Resolve user's display name for prompt personalization
+  const user = await storage.getUser(userId);
+  const userName = user?.firstName || user?.username || 'the user';
+
   // Preserve existing state if entry already exists
   const existing = await storage.getRoutineEntry(userId, today);
   const existingData = existing?.data as Record<string, any> | undefined;
@@ -121,7 +125,7 @@ export async function populateRoutine(storage: IStorage, userId: string): Promis
     : '';
 
   // Spawn agent task to populate live data
-  const prompt = `You are populating Austin's Daily Success Routine for ${todayFormatted}.
+  const prompt = `You are populating ${userName}'s Daily Success Routine for ${todayFormatted}.
 
 Use your tools to gather live data, then respond with a JSON object. No markdown, no explanation - ONLY the JSON.
 
@@ -142,7 +146,7 @@ Required JSON structure:
 Research steps (use each tool):
 1. calendar_events - Get today's meetings with time, title, attendees.
 2. gmail_search query "is:unread newer_than:1d" - Find unread emails. Flag client/vendor/team emails as critical.
-3. For each connected HighLevel account, search for tasks assigned to Austin that are due today or overdue.
+3. For each connected HighLevel account, search for tasks assigned to ${userName} that are due today or overdue.
 4. Check for pipeline opportunities that have been stalled >7 days.
 5. Build actionQueue from: meetings needing prep, emails needing response, GHL tasks due, pipeline follow-ups.
 6. Set escalations for: meetings <30 min away, critical emails unread >4h, deals stalled >7 days, overdue GHL tasks.

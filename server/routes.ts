@@ -771,7 +771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (action === 'reject') {
         await storage.updatePatchProposal(proposal.id, { status: 'rejected', resolvedAt: new Date() });
-        console.log(`[ghl-inbound] Patch ${code} rejected by Austin`);
+        console.log(`[ghl-inbound] Patch ${code} rejected by owner`);
         return;
       }
 
@@ -877,7 +877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (settingsData) settingsData.userTimezone = (userPrefs as any).timezone;
       }
       if ((userPrefs as any)?.location) extraToolContext.userLocation = (userPrefs as any).location;
-      // First name for bot naming (e.g. "Austin's Notetaker")
+      // First name for bot naming (e.g. "John's Notetaker")
       if (user.firstName) extraToolContext.userFirstName = user.firstName;
     } catch { /* non-fatal */ }
 
@@ -5629,7 +5629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   function getWorkflowDescription(name: string): string {
     const descriptions: Record<string, string> = {
-      'Daily Success Routine - Populate': 'Populates the Daily Success Routine dashboard with live data from all connected systems. Runs before work hours to prepare Austin\'s executive briefing.',
+      'Daily Success Routine - Populate': 'Populates the Daily Success Routine dashboard with live data from all connected systems. Runs before work hours to prepare the executive briefing.',
       'Morning Brief': 'Generates a comprehensive morning briefing with meeting context, email highlights, pipeline status, and strategic priorities.',
     };
     return descriptions[name] ?? `Automated workflow: ${name}`;
@@ -5642,7 +5642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { order: 2, name: 'Load strategic context', description: 'Pull knowledge items tagged as strategic priorities, goals, or routine context', tool: 'knowledge-base', icon: 'report' },
         { order: 3, name: 'Query Calendar', description: 'Fetch today\'s meetings with time, title, and attendees from Google Calendar', tool: 'calendar_events', icon: 'calendar' },
         { order: 4, name: 'Search Gmail', description: 'Find unread emails from the last 24 hours, flag client/vendor/team as critical', tool: 'gmail_search', icon: 'mail' },
-        { order: 5, name: 'Check HighLevel tasks', description: 'Search for tasks assigned to Austin that are due today or overdue across all sub-accounts', tool: 'ghl_mcp', icon: 'pipeline' },
+        { order: 5, name: 'Check HighLevel tasks', description: 'Search for tasks assigned to the user that are due today or overdue across all sub-accounts', tool: 'ghl_mcp', icon: 'pipeline' },
         { order: 6, name: 'Check pipeline deals', description: 'Identify pipeline opportunities stalled >7 days that need follow-up', tool: 'ghl_mcp', icon: 'pipeline' },
         { order: 7, name: 'Check system health', description: 'Verify MCP server connections, check for tool errors or auth failures', tool: 'system_check', icon: 'system' },
         { order: 8, name: 'Build action queue', description: 'Create prioritized action items from meetings (prep), emails (respond), tasks (complete), pipeline (follow-up)', tool: 'agent', icon: 'agent' },
@@ -6202,7 +6202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const region = recall.region || 'us-west-2';
       const service = new RecallService(recall.apiKey, region);
 
-      // Derive bot name from user's first name: "Austin's Notetaker"
+      // Derive bot name from user's first name (e.g. "John's Notetaker")
       const userRecord = await storage.getUser((req as any).user.id);
       const firstName = userRecord?.firstName?.trim() || null;
       const botName = firstName ? `${firstName}'s Notetaker` : 'Notetaker';

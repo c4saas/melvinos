@@ -236,7 +236,7 @@ function buildHeartbeatPrompt(config: HeartbeatSettings, timezone = 'America/Chi
   lines.push('- Only propose patches for confirmed bugs you have diagnosed — not guesses or cosmetic changes.');
   lines.push('- Read the relevant source files first to understand exactly what to change.');
   lines.push('- Write a precise `claude_prompt` that Claude Code can execute to apply the fix correctly.');
-  lines.push('- Each patch goes to Austin for approval via SMS before anything is changed.');
+  lines.push('- Each patch goes to the platform owner for approval via SMS before anything is changed.');
   lines.push('');
 
   if (config.constraints.length > 0) {
