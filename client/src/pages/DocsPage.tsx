@@ -17,6 +17,7 @@ import {
   Brain,
   Workflow,
   Lightbulb,
+  Mic,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ const SECTIONS = [
   { id: 'memory', label: 'Memory & Learning', icon: Brain },
   { id: 'workspace', label: 'Workspace', icon: FolderOpen },
   { id: 'tools', label: 'Tools & Capabilities', icon: Wrench },
+  { id: 'voice', label: 'Voice', icon: Mic },
   { id: 'skills', label: 'Skills', icon: Lightbulb },
   { id: 'workflows', label: 'Workflows', icon: Workflow },
   { id: 'subagents', label: 'Subagents', icon: Bot },
@@ -199,6 +201,18 @@ function SectionChat() {
                   <td className="px-2 py-1.5 text-blue-400">Native</td>
                   <td className="px-2 py-1.5 text-right">$0.003</td>
                   <td className="px-2 py-1.5 text-right">$0.015</td>
+                </tr>
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">Claude Haiku 4.5</td>
+                  <td className="px-2 py-1.5">Anthropic</td>
+                  <td className="px-2 py-1.5 text-right">200K</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-center text-muted-foreground/50">No</td>
+                  <td className="px-2 py-1.5 text-center text-green-500">Yes</td>
+                  <td className="px-2 py-1.5 text-muted-foreground/50">None</td>
+                  <td className="px-2 py-1.5 text-right">$0.0008</td>
+                  <td className="px-2 py-1.5 text-right">$0.004</td>
                 </tr>
                 <tr>
                   <td className="px-2 py-1.5 font-medium text-foreground">GPT-5.4</td>
@@ -526,6 +540,7 @@ function SectionTools() {
             <li><code className="text-xs bg-muted px-1 rounded">notion_search</code> — Search pages and databases</li>
             <li><code className="text-xs bg-muted px-1 rounded">notion_read_page</code> — Read page content</li>
             <li><code className="text-xs bg-muted px-1 rounded">notion_create_page</code> / <code className="text-xs bg-muted px-1 rounded">notion_update_page</code> — Create and edit pages</li>
+            <li><code className="text-xs bg-muted px-1 rounded">notion_query_database</code> — Query a Notion database with filters, sorts, and pagination</li>
           </ul>
         </CardContent>
       </Card>
@@ -556,9 +571,12 @@ function SectionTools() {
         <CardContent className="text-sm text-muted-foreground">
           <ul className="list-disc list-inside space-y-1">
             <li><code className="text-xs bg-muted px-1 rounded">python_execute</code> — Run Python code in a sandboxed WebAssembly environment. If the runtime fails to load (e.g. network issue), it auto-retries after 5 minutes — no restart needed.</li>
-            <li><code className="text-xs bg-muted px-1 rounded">shell_execute</code> — Run shell commands in the workspace directory, or SSH to configured servers via <code className="text-xs bg-muted px-1 rounded">ssh alias "command"</code></li>
+            <li><code className="text-xs bg-muted px-1 rounded">shell_execute</code> — Run shell commands in the workspace directory</li>
+            <li><code className="text-xs bg-muted px-1 rounded">ssh_execute</code> — Execute commands on configured remote servers via SSH. Configure servers in <em>Settings &gt; Integrations</em>.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">file_read</code> — Read files from the workspace</li>
             <li><code className="text-xs bg-muted px-1 rounded">file_write</code> — Write files to the workspace</li>
-            <li><code className="text-xs bg-muted px-1 rounded">claude_code</code> — Delegate complex coding tasks to a Claude Code subagent (web search, memory, file I/O, and scheduling included)</li>
+            <li><code className="text-xs bg-muted px-1 rounded">file_edit</code> — Edit specific sections of workspace files</li>
+            <li><code className="text-xs bg-muted px-1 rounded">claude_code</code> — Delegate complex coding tasks to a dedicated Claude Code container. Supports configurable model, effort level, and max turns. Sub-tool calls stream to the UI in real time.</li>
           </ul>
           <p className="mt-2">{agentName} has SSH access to your configured servers — just ask it to run a command on the remote server.</p>
         </CardContent>
@@ -575,6 +593,10 @@ function SectionTools() {
             <li><code className="text-xs bg-muted px-1 rounded">delete_scheduled_task</code> — Remove a scheduled task by ID.</li>
             <li><code className="text-xs bg-muted px-1 rounded">memory_save</code> / <code className="text-xs bg-muted px-1 rounded">memory_search</code> / <code className="text-xs bg-muted px-1 rounded">memory_delete</code> — Persist, retrieve, and remove information across conversations</li>
             <li><code className="text-xs bg-muted px-1 rounded">list_output_templates</code> — Look up configured output templates by name. Used automatically when you ask {agentName} to "use the [name] template" in a conversation.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">skill_update</code> — Create, update, or toggle skills from within a conversation. Enables self-improving behavior — {agentName} can codify learned patterns into persistent skills.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">propose_patch</code> — Propose code-level changes to the platform itself for review.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">gamma_create</code> — Create polished presentations and documents via Gamma AI.</li>
+            <li><code className="text-xs bg-muted px-1 rounded">consolidate_data</code> — Aggregate and consolidate data from multiple tool results into a unified summary.</li>
           </ul>
           <p className="mt-2">Scheduled tasks survive server restarts and are managed from the <em>Workflows</em> page or Settings → Monitoring. When multiple tools are needed in a single turn, {agentName} executes them in parallel for faster results.</p>
         </CardContent>
@@ -590,6 +612,54 @@ function SectionTools() {
           </ul>
           <p className="mt-2"><strong className="text-foreground">Auto-join:</strong> When Google Calendar is connected via Recall, {agentName} automatically joins every meeting that has a video link (Zoom, Google Meet, Teams, Webex) — 2 minutes before start. No manual intervention needed. Configure in <em>Settings &gt; Integrations &gt; Recall AI</em>.</p>
           <p className="mt-2">When a bot finishes (<code className="text-xs bg-muted px-1 rounded">bot.done</code>) {agentName} automatically fetches the transcript, generates an AI summary, and creates a Notion entry in your configured Meetings database. Fatal bot failures (<code className="text-xs bg-muted px-1 rounded">bot.fatal</code>) are logged to the Tool Error Log in System Monitor.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionVoice() {
+  const { agentName } = useBranding();
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Voice</h2>
+      <p className="text-muted-foreground">
+        {agentName} supports voice input and output — speak your requests and hear responses read aloud.
+      </p>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Voice Input (Speech-to-Text)</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Press and hold the microphone button in the chat input bar to record a voice message. Release to send. {agentName} transcribes your speech and processes it like any text message.</p>
+          <p className="font-medium text-foreground">Supported STT providers:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Groq Whisper</strong> — Fast transcription via Groq API</li>
+            <li><strong>OpenAI Whisper</strong> — OpenAI's speech-to-text model</li>
+            <li><strong>Whisper Local</strong> — On-device transcription (no API call)</li>
+          </ul>
+          <p>Configure the STT provider in <em>Settings &gt; AI Providers</em>.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Voice Output (Text-to-Speech)</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>When voice mode is active, {agentName} reads its responses aloud. Playback controls (play/pause/stop) appear on each message.</p>
+          <p className="font-medium text-foreground">Supported TTS providers:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><strong>OpenAI TTS</strong> — High-quality text-to-speech (default model: gpt-4o-mini-tts, voice: alloy)</li>
+            <li><strong>OpenAI Realtime</strong> — Low-latency WebSocket streaming for live conversation mode</li>
+            <li><strong>ElevenLabs</strong> — Premium voice synthesis</li>
+          </ul>
+          <p>Configure voice model, voice name, and format in <em>Settings &gt; AI Providers</em> or via the <code className="text-xs bg-muted px-1 rounded">.env</code> file.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Conversation Mode</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>Long-press the microphone button to enter <strong>Conversation Mode</strong> — a hands-free voice interaction where {agentName} listens continuously and responds with speech. Ideal for on-the-go use.</p>
+          <p>When OpenAI Realtime is enabled (<code className="text-xs bg-muted px-1 rounded">OPENAI_VOICE_REALTIME_ENABLED=true</code>), conversation mode uses WebSocket streaming for near-instant voice responses.</p>
         </CardContent>
       </Card>
     </div>
@@ -849,6 +919,12 @@ function SectionSettings() {
               </ul>
             </div>
             <div>
+              <p className="font-semibold text-foreground">Releases</p>
+              <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                <li><strong>Release Management</strong> — Bundle system prompts, assistants, templates, output templates, and tool policies into versioned snapshots. Publish a release to activate it across all conversations, or roll back to a previous version instantly.</li>
+              </ul>
+            </div>
+            <div>
               <p className="font-semibold text-foreground">Advanced</p>
               <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
                 <li><strong>AI Providers</strong> — Configure LLM, TTS, STT, image, and video providers.</li>
@@ -1072,22 +1148,43 @@ function SectionShortcuts() {
       </p>
 
       <Card>
-        <CardContent className="text-sm pt-6">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Go to Chat</span>
-              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">g</kbd>{' '}
-              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">u</kbd>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Go to Settings</span>
-              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">g</kbd>{' '}
-              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">a</kbd>
+        <CardHeader><CardTitle className="text-base">Command Palette</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <div className="flex items-center justify-between">
+            <span>Open Command Palette</span>
+            <div className="flex gap-1">
+              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">Ctrl</kbd>
+              <span className="text-xs">+</span>
+              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">K</kbd>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground/60 mt-4">
-            Press keys in sequence (not held together). The sequence resets after 1 second.
+          <p className="text-xs text-muted-foreground/70 mt-2">
+            The Command Palette provides quick navigation to: New Chat, Chat, Workspace, Settings, AI Providers, MCP Servers, Skills, System Prompts, Memory, and Subagent Library. Start typing to filter.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Chat Input</CardTitle></CardHeader>
+        <CardContent className="text-sm">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Send message</span>
+              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">Enter</kbd>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">New line</span>
+              <div className="flex gap-1">
+                <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">Shift</kbd>
+                <span className="text-xs">+</span>
+                <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">Enter</kbd>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Slash commands</span>
+              <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">/</kbd>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -1230,6 +1327,7 @@ const SECTION_COMPONENTS: Record<SectionId, () => JSX.Element> = {
   memory: SectionMemory,
   workspace: SectionWorkspace,
   tools: SectionTools,
+  voice: SectionVoice,
   skills: SectionSkills,
   workflows: SectionWorkflows,
   subagents: SectionSubagents,
