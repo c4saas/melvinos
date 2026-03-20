@@ -6504,6 +6504,10 @@ Upcoming meetings, follow-ups, or deadlines mentioned. Write "None" if none.`;
             };
           }
 
+          // Link back to Recall bot dashboard
+          const recallBotUrl = `https://us-west-2.recall.ai/dashboard/bots/${bot.id}`;
+          notionBody.properties.Transcript = { url: recallBotUrl };
+
           // Build page body: full summary + full transcript (no 2000-char property limit)
           const pageBlocks: any[] = [];
 
