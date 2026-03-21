@@ -5675,7 +5675,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Helper: resolve Google OAuth credentials from env or platform settings
-  async function getGoogleCredentials(): Promise<{ clientId: string; clientSecret: string } | null> {
+  async function getGoogleCredentials(accountLabel?: string): Promise<{ clientId: string; clientSecret: string } | null> {
+    // Check for a matching additional app first when a non-default label is provided
+    if (accountLabel && accountLabel !== 'default') {
+      try {
+        const settings = await storage.getPlatformSettings();
+        const google = (settings?.data as any)?.integrations?.google;
+        const additionalApps = google?.additionalApps as Array<{ label?: string; clientId?: string; clientSecret?: string }> | undefined;
+        if (additionalApps) {
+          const match = additionalApps.find(app => app.label?.toLowerCase() === accountLabel.toLowerCase());
+          if (match?.clientId && match?.clientSecret) {
+            return { clientId: match.clientId, clientSecret: match.clientSecret };
+          }
+        }
+      } catch (err) { console.debug('[google-oauth] Could not check additional apps:', err instanceof Error ? err.message : err); }
+    }
+    // Fall back to default credentials
     if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       return { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET };
     }
@@ -5692,7 +5707,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google Drive OAuth routes
   app.get('/auth/google', requireAuth, async (req, res) => {
     try {
-      const creds = await getGoogleCredentials();
+      const accountLabel = String(req.query.label ?? 'default').trim() || 'default';
+      const creds = await getGoogleCredentials(accountLabel);
       if (!creds) {
         return res.status(500).json({ error: 'Google OAuth credentials not configured' });
       }
@@ -5746,7 +5762,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const userId = (req as any).user.id;
-      const creds = await getGoogleCredentials();
+      const accountLabel = String(req.cookies.oauth_account_label ?? 'default').trim() || 'default';
+      const creds = await getGoogleCredentials(accountLabel);
       if (!creds) {
         return res.redirect('/google-drive?error=not_configured');
       }
