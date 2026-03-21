@@ -39,8 +39,11 @@ export const deepResearchTool: ToolDefinition = {
     }
 
     try {
+      const controller = new AbortController();
+      const fetchTimeout = setTimeout(() => controller.abort(), 150_000); // 2.5 min
       const response = await fetch(PERPLEXITY_ENDPOINT, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
@@ -62,6 +65,8 @@ export const deepResearchTool: ToolDefinition = {
           search_recency_filter: recencyFilter,
         }),
       });
+
+      clearTimeout(fetchTimeout);
 
       if (!response.ok) {
         const errorText = await response.text();

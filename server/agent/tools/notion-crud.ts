@@ -313,7 +313,11 @@ export const notionQueryDatabaseTool: ToolDefinition = {
       if (filter) queryParams.filter = filter;
       if (sorts) queryParams.sorts = sorts;
 
-      const response: any = await client.databases.query(queryParams);
+      const response: any = await (client as any).request({
+        path: `databases/${databaseId}/query`,
+        method: 'POST',
+        body: queryParams,
+      });
       const pages = response.results ?? [];
 
       if (pages.length === 0) {

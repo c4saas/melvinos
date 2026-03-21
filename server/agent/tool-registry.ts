@@ -120,8 +120,16 @@ export class ToolRegistry {
     if (!tool) {
       return { output: '', error: `Unknown tool: ${toolName}` };
     }
+    // Long-running tools get extended timeouts; everything else gets 60s
+    const LONG_TOOLS = new Set(['deep_research', 'claude_code', 'gamma_create', 'video_generate']);
+    const timeoutMs = LONG_TOOLS.has(toolName) ? 180_000 : 60_000;
     try {
-      return await tool.execute(args, context);
+      return await Promise.race([
+        tool.execute(args, context),
+        new Promise<ToolResult>((_, reject) =>
+          setTimeout(() => reject(new Error(`timed out after ${timeoutMs / 1000}s`)), timeoutMs)
+        ),
+      ]);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { output: '', error: `Tool "${toolName}" failed: ${message}` };
