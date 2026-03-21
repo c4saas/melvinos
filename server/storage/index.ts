@@ -2339,6 +2339,7 @@ export class DatabaseStorage implements IStorage {
           refreshToken: insertToken.refreshToken ?? null,
           tokenExpiry: insertToken.tokenExpiry ?? null,
           scopes: insertToken.scopes ?? null,
+          ...((insertToken as any).email ? { email: (insertToken as any).email } : {}),
           updatedAt: new Date(),
         },
       })

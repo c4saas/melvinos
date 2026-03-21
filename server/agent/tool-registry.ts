@@ -23,6 +23,7 @@ export interface ToolArtifact {
 
 export interface GoogleAccount {
   label: string;
+  email?: string;
   accessToken: string;
   refreshToken?: string;
   clientId?: string;

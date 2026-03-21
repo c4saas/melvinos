@@ -903,6 +903,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // All accounts for fan-out
         extraToolContext.googleAccounts = googleTokens.map(t => ({
           label: t.accountLabel ?? 'default',
+          email: (t as any).email ?? undefined,
           accessToken: t.accessToken,
           refreshToken: t.refreshToken ?? undefined,
           clientId,
@@ -3616,6 +3617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               };
               extraToolContext.googleAccounts = googleTokens.map(t => ({
                 label: t.accountLabel ?? 'default',
+                email: (t as any).email ?? undefined,
                 accessToken: t.accessToken,
                 refreshToken: t.refreshToken ?? undefined,
                 clientId,
@@ -5761,11 +5763,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const accountLabel = String(req.cookies.oauth_account_label ?? 'default').trim() || 'default';
       res.clearCookie('oauth_account_label');
 
+      // Fetch the Google account email so we can display it in the UI
+      let googleEmail: string | null = null;
+      try {
+        const userinfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        if (userinfoRes.ok) {
+          const userinfo = await userinfoRes.json() as { email?: string };
+          googleEmail = userinfo.email ?? null;
+        }
+      } catch (e) {
+        console.warn('[google-oauth] Failed to fetch userinfo email:', e);
+      }
+
       // Save tokens to database (upserts on userId + provider + accountLabel)
       await storage.saveOAuthToken({
         userId,
         provider: 'google',
         accountLabel,
+        email: googleEmail,
         accessToken: tokens.access_token!,
         refreshToken: tokens.refresh_token,
         tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
@@ -5909,6 +5926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tokens = await storage.getOAuthTokens(userId, 'google');
       const accounts = tokens.map(t => ({
         label: t.accountLabel ?? 'default',
+        email: (t as any).email ?? null,
         connectedAt: t.createdAt ? t.createdAt.toISOString() : null,
         scopes: t.scopes ?? [],
       }));

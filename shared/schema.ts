@@ -1187,6 +1187,7 @@ export const oauthTokens = pgTable("oauth_tokens", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   provider: text("provider").notNull(), // 'google', 'microsoft', etc.
   accountLabel: text("account_label").notNull().default("default"), // e.g. 'Work', 'Agency', 'Personal'
+  email: text("email"), // Google account email — fetched from userinfo on connect
   accessToken: text("access_token").notNull(),
   refreshToken: text("refresh_token"),
   tokenExpiry: timestamp("token_expiry"),

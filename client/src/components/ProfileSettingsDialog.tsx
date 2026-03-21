@@ -204,7 +204,7 @@ function AgentMemoriesSection() {
 
 function ConnectedAccountsCard() {
   const { toast } = useToast();
-  const { data, isLoading, refetch } = useQuery<{ accounts: { label: string; connectedAt: string | null }[] }>({
+  const { data, isLoading, refetch } = useQuery<{ accounts: { label: string; email?: string | null; connectedAt: string | null }[] }>({
     queryKey: ['google-accounts'],
     queryFn: async () => { const r = await apiRequest('GET', '/api/integrations/google/accounts'); return r.json(); },
   });
@@ -241,7 +241,7 @@ function ConnectedAccountsCard() {
               <p className="text-xs sm:text-sm font-medium">Google</p>
               {isConnected ? (
                 <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                  Connected · {accounts[0].label !== 'default' ? accounts[0].label : 'Default account'}
+                  {accounts[0].email || (accounts[0].label !== 'default' ? accounts[0].label : 'Connected')}
                 </p>
               ) : (
                 <p className="text-[10px] sm:text-xs text-muted-foreground">Not connected</p>

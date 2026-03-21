@@ -1,5 +1,5 @@
 import type { ToolDefinition, ToolResult, ToolContext } from '../tool-registry';
-import { getGoogleServices } from './google-service-helper';
+import { getGoogleServices, accountDisplayName } from './google-service-helper';
 import { saveToWorkspace, timestampedName } from './workspace-save';
 
 export const calendarEventsTool: ToolDefinition = {
@@ -45,9 +45,9 @@ export const calendarEventsTool: ToolDefinition = {
     }
 
     const results = await Promise.allSettled(
-      filtered.map(async ({ label, service }) => {
-        const result = await service.listCalendarEvents(timeMin, timeMax, maxResults);
-        return { label, result };
+      filtered.map(async (acct) => {
+        const result = await acct.service.listCalendarEvents(timeMin, timeMax, maxResults);
+        return { displayName: accountDisplayName(acct), result };
       }),
     );
 
@@ -67,9 +67,9 @@ export const calendarEventsTool: ToolDefinition = {
     const sections: string[] = [];
     for (const r of results) {
       if (r.status === 'rejected') continue;
-      const { label, result } = r.value;
+      const { displayName, result } = r.value;
       if (!result.events || result.events.length === 0) {
-        sections.push(`**[${label}]** No upcoming events.`);
+        sections.push(`**[${displayName}]** No upcoming events.`);
         continue;
       }
       const lines = result.events.map((evt: any, i: number) => {
@@ -80,7 +80,7 @@ export const calendarEventsTool: ToolDefinition = {
         const meetStr = evt.meetLink ? `\n   Meet Link: ${evt.meetLink}` : '';
         return `${i + 1}. **${evt.summary}**\n   ${start}${end ? ` – ${end}` : ''}${locationStr}${meetStr}${attendeeStr}\n   Event ID: ${evt.id}`;
       });
-      sections.push(`**[${label}]** ${result.events.length} event(s):\n\n${lines.join('\n\n')}`);
+      sections.push(`**[${displayName}]** ${result.events.length} event(s):\n\n${lines.join('\n\n')}`);
     }
 
     const output = sections.join('\n\n---\n\n');

@@ -23,7 +23,7 @@ export function buildService(
  */
 export function getGoogleServices(
   context: ToolContext,
-): Array<{ label: string; service: GoogleDriveService }> {
+): Array<{ label: string; email?: string; service: GoogleDriveService }> {
   const clientId = context.googleClientId || process.env.GOOGLE_CLIENT_ID;
   const clientSecret = context.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET;
   if (!clientId || !clientSecret) return [];
@@ -34,6 +34,7 @@ export function getGoogleServices(
   if (context.googleAccounts && context.googleAccounts.length > 0) {
     return context.googleAccounts.map(acc => ({
       label: acc.label,
+      email: acc.email,
       service: buildService({ ...acc, clientId, clientSecret }, clientId, clientSecret, userTimezone),
     }));
   }
@@ -45,6 +46,14 @@ export function getGoogleServices(
   if (context.updateGoogleTokens) service.setTokenRefreshCallback(context.updateGoogleTokens);
   if (userTimezone) service.userTimezone = userTimezone;
   return [{ label: 'default', service }];
+}
+
+/**
+ * Human-readable display name for a Google account.
+ * Prefers email, falls back to label.
+ */
+export function accountDisplayName(account: { label: string; email?: string }): string {
+  return account.email || (account.label !== 'default' ? account.label : 'Google');
 }
 
 /**

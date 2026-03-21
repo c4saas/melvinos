@@ -1,5 +1,5 @@
 import type { ToolDefinition, ToolResult, ToolContext } from '../tool-registry';
-import { getGoogleServices } from './google-service-helper';
+import { getGoogleServices, accountDisplayName } from './google-service-helper';
 import { saveToWorkspace, timestampedName } from './workspace-save';
 
 export const gmailSearchTool: ToolDefinition = {
@@ -44,24 +44,24 @@ export const gmailSearchTool: ToolDefinition = {
     }
 
     const results = await Promise.allSettled(
-      filtered.map(async ({ label, service }) => {
-        const result = await service.listEmails(query, maxResults);
-        return { label, result };
+      filtered.map(async (acct) => {
+        const result = await acct.service.listEmails(query, maxResults);
+        return { displayName: accountDisplayName(acct), result };
       }),
     );
 
     const sections: string[] = [];
     for (const r of results) {
       if (r.status === 'rejected') continue;
-      const { label, result } = r.value;
+      const { displayName, result } = r.value;
       if (!result.messages || result.messages.length === 0) {
-        sections.push(`**[${label}]** No emails found.`);
+        sections.push(`**[${displayName}]** No emails found.`);
         continue;
       }
       const lines = result.messages.map((msg: any, i: number) =>
         `${i + 1}. **${msg.subject || '(No subject)'}**\n   From: ${msg.from}\n   Date: ${msg.date}\n   ${msg.snippet}`,
       );
-      sections.push(`**[${label}]** ${result.messages.length} result(s):\n\n${lines.join('\n\n')}`);
+      sections.push(`**[${displayName}]** ${result.messages.length} result(s):\n\n${lines.join('\n\n')}`);
     }
 
     const output = sections.join('\n\n---\n\n');
