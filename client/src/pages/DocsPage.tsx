@@ -496,7 +496,7 @@ function SectionTools() {
       <Card>
         <CardHeader><CardTitle className="text-base">Google Workspace</CardTitle></CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          <p className="mb-2">Multiple Google accounts are supported (e.g. Work, Agency, Personal). All read tools fan out across all connected accounts and label results by account. Write tools accept an optional <code className="text-xs bg-muted px-1 rounded">account</code> parameter to target a specific one.</p>
+          <p className="mb-2">Multiple Google accounts are supported (e.g. Work, Agency, Personal). All read tools fan out across all connected accounts and label results by email address (e.g. <strong>[austin@company.com]</strong>). Write tools accept an optional <code className="text-xs bg-muted px-1 rounded">account</code> parameter to target a specific one.</p>
           <div className="space-y-2">
             <p className="font-medium text-foreground">Calendar</p>
             <ul className="list-disc list-inside space-y-1 ml-2">
@@ -960,11 +960,11 @@ function SectionIntegrations() {
       <Card>
         <CardHeader><CardTitle className="text-base">Google Workspace</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>Enables Calendar, Gmail, and Google Drive tools. Multiple Google accounts are supported — all read tools fan out across all connected accounts and label results by account.</p>
+          <p>Enables Calendar, Gmail, and Google Drive tools. Multiple Google accounts are supported — all read tools fan out across all connected accounts and label results by email address (e.g. <strong>[austin@company.com]</strong>). Your Profile → Connected Accounts shows each Google account with its email.</p>
           <ol className="list-decimal list-inside space-y-1">
             <li>Go to <em>Settings &gt; Integrations &gt; Google</em> and enter your OAuth <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
             <li>Open your <strong>Profile</strong> (avatar in top-right) → <strong>Account</strong> tab → <strong>Connected Accounts</strong>.</li>
-            <li>Click <strong>Connect</strong> next to Google and authorize access.</li>
+            <li>Click <strong>Connect</strong> next to Google and authorize access. The account email is fetched automatically.</li>
           </ol>
           <p>Write tools (<code className="text-xs bg-muted px-1 rounded">gmail_send</code>, <code className="text-xs bg-muted px-1 rounded">calendar_create_event</code>, etc.) accept an optional <code className="text-xs bg-muted px-1 rounded">account</code> parameter to target a specific connected account.</p>
         </CardContent>
