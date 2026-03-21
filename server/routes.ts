@@ -5722,7 +5722,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate CSRF protection state; embed account label in state cookie
       const state = randomUUID();
-      const accountLabel = String(req.query.label ?? 'default').trim() || 'default';
       res.cookie('oauth_state', state, {
         httpOnly: true,
         secure: req.protocol === 'https',
@@ -5777,7 +5776,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const tokens = await driveService.exchangeCodeForTokens(code as string);
 
-      const accountLabel = String(req.cookies.oauth_account_label ?? 'default').trim() || 'default';
       res.clearCookie('oauth_account_label');
 
       // Fetch the Google account email so we can display it in the UI
